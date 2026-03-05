@@ -1,7 +1,7 @@
 import type { Context, Next } from "hono";
-import { stytchClient } from "../lib/stytch.js";
+import { supabase } from "../lib/supabase.js";
 
-// Middleware: extract + verify Stytch session from Authorization header
+// Middleware: verify Supabase JWT from Authorization header
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function authMiddleware(c: Context<any>, next: Next) {
   const authHeader = c.req.header("Authorization");
@@ -9,21 +9,23 @@ export async function authMiddleware(c: Context<any>, next: Next) {
     return c.json({ error: "Missing or invalid Authorization header" }, 401);
   }
 
-  const sessionToken = authHeader.slice(7);
+  const token = authHeader.slice(7);
 
   try {
-    const session = await stytchClient.sessions.authenticate({
-      session_token: sessionToken,
-    });
+    const { data, error } = await supabase.auth.getUser(token);
+
+    if (error || !data.user) {
+      return c.json({ error: "Unauthorized", details: error?.message }, 401);
+    }
 
     // Attach user info to context
-    c.set("userId", session.user.user_id);
-    c.set("userEmail", session.user.emails?.[0]?.email || "");
-    c.set("sessionToken", sessionToken);
+    c.set("userId", data.user.id);
+    c.set("userEmail", data.user.email || "");
+    c.set("accessToken", token);
 
     await next();
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Invalid session";
+    const message = err instanceof Error ? err.message : "Auth failed";
     return c.json({ error: "Unauthorized", details: message }, 401);
   }
 }

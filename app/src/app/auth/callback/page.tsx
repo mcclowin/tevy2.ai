@@ -1,36 +1,36 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { verifyToken } from "@/lib/api";
-import { setSession } from "@/lib/auth";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
-function CallbackContent() {
+export default function AuthCallbackPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const token = searchParams.get("token");
-    if (!token) {
-      setError("No token found in URL");
-      return;
-    }
-
-    verifyToken(token)
-      .then((result) => {
-        setSession(result.session_token, result.user);
+    // Supabase puts tokens in the URL hash after magic link click
+    // The Supabase client auto-detects and exchanges them
+    supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" && session) {
+        // Check if there's a pending setup
         const pendingSetup = sessionStorage.getItem("tevy2_pending_setup");
         if (pendingSetup) {
-          router.push("/setup?step=2");
+          sessionStorage.removeItem("tevy2_pending_setup");
+          router.push("/setup");
         } else {
           router.push("/dashboard");
         }
-      })
-      .catch((err) => {
-        setError(err.message || "Verification failed");
-      });
-  }, [searchParams, router]);
+      }
+    });
+
+    // Also handle errors from the URL
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const errorDesc = hashParams.get("error_description");
+    if (errorDesc) {
+      setError(errorDesc);
+    }
+  }, [router]);
 
   if (error) {
     return (
@@ -54,22 +54,5 @@ function CallbackContent() {
         <p className="text-[var(--muted)]">Verifying your email...</p>
       </div>
     </div>
-  );
-}
-
-export default function AuthCallbackPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-center">
-            <div className="w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-[var(--muted)]">Loading...</p>
-          </div>
-        </div>
-      }
-    >
-      <CallbackContent />
-    </Suspense>
   );
 }

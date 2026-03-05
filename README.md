@@ -24,13 +24,15 @@ User → Frontend (Cloudflare Pages)
 
 ### 1. Prerequisites
 - Node.js 22+
-- Supabase project (free tier)
-- Stytch project (free tier, Consumer type)
+- Supabase project (free tier) — handles auth + DB
 - Fly.io account + API token
 - Anthropic API key
 
 ### 2. Setup Supabase
-Run `backend/sql/schema.sql` in your Supabase SQL editor.
+1. Create project at supabase.com
+2. Run `backend/sql/schema.sql` in your Supabase SQL editor
+3. Enable "Email" auth provider in Authentication → Providers (enabled by default)
+4. Add your frontend URL to Authentication → URL Configuration → Redirect URLs
 
 ### 3. Backend
 
@@ -68,8 +70,6 @@ With `NEXT_PUBLIC_MOCK_AUTH=true` in `app/.env.local`, the setup wizard will aut
 | `SUPABASE_URL` | ✅ | Supabase project URL |
 | `SUPABASE_ANON_KEY` | ✅ | Supabase anon key |
 | `SUPABASE_SERVICE_ROLE_KEY` | ✅ | Supabase service role key |
-| `STYTCH_PROJECT_ID` | ✅ | Stytch project ID |
-| `STYTCH_SECRET` | ✅ | Stytch secret |
 | `FLY_API_TOKEN` | ✅ | Fly.io API token |
 | `FLY_APP_NAME` | ✅ | Fly.io app name for agents |
 | `ANTHROPIC_API_KEY` | ✅ | Master Anthropic key for agents |
@@ -79,8 +79,10 @@ With `NEXT_PUBLIC_MOCK_AUTH=true` in `app/.env.local`, the setup wizard will aut
 ### Frontend (.env.local)
 | Var | Required | Description |
 |-----|----------|-------------|
+| `NEXT_PUBLIC_SUPABASE_URL` | ✅ | Same Supabase URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ | Same Supabase anon key |
 | `NEXT_PUBLIC_API_URL` | | Backend URL (default: http://localhost:3001) |
-| `NEXT_PUBLIC_MOCK_AUTH` | | Skip Stytch for local dev (default: false) |
+| `NEXT_PUBLIC_MOCK_AUTH` | | Skip auth for local dev (default: false) |
 
 ## Project Structure
 

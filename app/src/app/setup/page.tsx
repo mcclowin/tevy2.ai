@@ -3,8 +3,8 @@
 import { useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { sendMagicLink, createInstance } from "@/lib/api";
-import { getSession, setSession, isAuthenticated } from "@/lib/auth";
+import { createInstance } from "@/lib/api";
+import { sendMagicLink } from "@/lib/auth";
 
 type FormData = {
   email: string;
@@ -72,22 +72,19 @@ export default function SetupPage() {
     setEmailSent(true);
 
     try {
+      // Store setup state so callback redirects back to setup
+      sessionStorage.setItem("tevy2_pending_setup", "true");
       await sendMagicLink(form.email);
-      // Store setup state so callback redirects back here
-      sessionStorage.setItem("tevy2_pending_setup", JSON.stringify(form));
-      // For dev/demo: auto-verify after delay (real flow goes through email callback)
-      // In production, user clicks email link → /auth/callback → redirects back
+      // User will click email link → /auth/callback → redirect back to /setup
     } catch (err) {
       console.error("Failed to send magic link:", err);
       setEmailSent(false);
     }
 
-    // TODO: Remove this mock — real flow uses email callback
-    // For local dev without Stytch, auto-verify after 2s
+    // Mock auth for local dev without Supabase configured
     if (process.env.NEXT_PUBLIC_MOCK_AUTH === "true") {
       setTimeout(() => {
         setEmailVerified(true);
-        setSession("mock-session-token", { id: "mock-user", email: form.email });
         setActiveSection(2);
       }, 2000);
     }
@@ -135,24 +132,20 @@ export default function SetupPage() {
 
     // Actually call backend to provision
     try {
-      const sessionToken = getSession();
-      const result = await createInstance(
-        {
-          ownerName: form.ownerName,
-          businessName: form.businessName,
-          websiteUrl: form.websiteUrl,
-          instagram: form.instagram,
-          tiktok: form.tiktok,
-          linkedin: form.linkedin,
-          twitter: form.twitter,
-          facebook: form.facebook,
-          competitors: form.competitors,
-          brandNotes: form.brandNotes,
-          postingGoal: "3-4 posts per week",
-          chatChannel: form.telegramConnected ? "telegram" : "webchat",
-        },
-        sessionToken || ""
-      );
+      const result = await createInstance({
+        ownerName: form.ownerName,
+        businessName: form.businessName,
+        websiteUrl: form.websiteUrl,
+        instagram: form.instagram,
+        tiktok: form.tiktok,
+        linkedin: form.linkedin,
+        twitter: form.twitter,
+        facebook: form.facebook,
+        competitors: form.competitors,
+        brandNotes: form.brandNotes,
+        postingGoal: "3-4 posts per week",
+        chatChannel: form.telegramConnected ? "telegram" : "webchat",
+      });
 
       // Continue animation after successful provision
       for (let i = 3; i < steps.length; i++) {

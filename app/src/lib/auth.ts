@@ -1,35 +1,36 @@
 "use client";
 
-// Simple session token management via localStorage
-const SESSION_KEY = "tevy2_session";
-const USER_KEY = "tevy2_user";
+import { supabase } from "./supabase";
 
-export function getSession(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(SESSION_KEY);
+export async function sendMagicLink(email: string) {
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: {
+      emailRedirectTo: `${window.location.origin}/auth/callback`,
+    },
+  });
+  if (error) throw error;
 }
 
-export function setSession(token: string, user: { id: string; email: string }) {
-  localStorage.setItem(SESSION_KEY, token);
-  localStorage.setItem(USER_KEY, JSON.stringify(user));
+export async function getSession() {
+  const { data } = await supabase.auth.getSession();
+  return data.session;
 }
 
-export function getUser(): { id: string; email: string } | null {
-  if (typeof window === "undefined") return null;
-  const raw = localStorage.getItem(USER_KEY);
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
+export async function getUser() {
+  const { data } = await supabase.auth.getUser();
+  return data.user;
 }
 
-export function clearSession() {
-  localStorage.removeItem(SESSION_KEY);
-  localStorage.removeItem(USER_KEY);
+export async function getAccessToken(): Promise<string | null> {
+  const session = await getSession();
+  return session?.access_token || null;
 }
 
-export function isAuthenticated(): boolean {
-  return !!getSession();
+export async function signOut() {
+  await supabase.auth.signOut();
+}
+
+export function onAuthChange(callback: (event: string, session: unknown) => void) {
+  return supabase.auth.onAuthStateChange(callback);
 }

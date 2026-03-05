@@ -12,15 +12,10 @@ function optional(key: string, fallback: string): string {
 export const env = {
   PORT: parseInt(optional("PORT", "3001")),
 
-  // Supabase
+  // Supabase (auth + DB)
   SUPABASE_URL: required("SUPABASE_URL"),
   SUPABASE_ANON_KEY: required("SUPABASE_ANON_KEY"),
   SUPABASE_SERVICE_ROLE_KEY: required("SUPABASE_SERVICE_ROLE_KEY"),
-
-  // Stytch
-  STYTCH_PROJECT_ID: required("STYTCH_PROJECT_ID"),
-  STYTCH_SECRET: required("STYTCH_SECRET"),
-  STYTCH_ENV: optional("STYTCH_ENV", "test") as "test" | "live",
 
   // Fly.io
   FLY_API_TOKEN: required("FLY_API_TOKEN"),
