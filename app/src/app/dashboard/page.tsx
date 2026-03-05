@@ -23,6 +23,7 @@ export default function DashboardPage() {
         {/* Logo */}
         <div className="px-5 py-5 border-b border-[var(--border)]">
           <Link href="/" className="flex items-center gap-2">
+            <img src="/logo-wizard.jpg" alt="tevy2" className="w-7 h-7 rounded-lg" />
             <span className="text-lg font-bold">
               <span className="gradient-text">tevy2</span>
               <span className="text-[var(--muted)]">.ai</span>
@@ -492,7 +493,7 @@ function ChatTab() {
         {/* Messages */}
         <div className="flex-1 p-6 overflow-auto space-y-4">
           <div className="flex gap-3">
-            <div className="w-7 h-7 rounded-full bg-[var(--accent)] flex-shrink-0 flex items-center justify-center text-white text-xs font-bold mt-1">T</div>
+            <img src="/logo-wizard.jpg" alt="Tevy" className="w-7 h-7 rounded-full flex-shrink-0 mt-1" />
             <div className="glass rounded-xl rounded-tl-sm px-4 py-3 text-sm max-w-[80%]">
               Hey Jane! I just finished this week&apos;s competitor analysis. Stumptown is doing something interesting with merch — want me to draft a response angle for your brand?
             </div>
@@ -503,7 +504,7 @@ function ChatTab() {
             </div>
           </div>
           <div className="flex gap-3">
-            <div className="w-7 h-7 rounded-full bg-[var(--accent)] flex-shrink-0 flex items-center justify-center text-white text-xs font-bold mt-1">T</div>
+            <img src="/logo-wizard.jpg" alt="Tevy" className="w-7 h-7 rounded-full flex-shrink-0 mt-1" />
             <div className="glass rounded-xl rounded-tl-sm px-4 py-3 text-sm max-w-[80%]">
               Given your artisan/sustainability brand, I&apos;d avoid generic mugs. Instead:<br /><br />
               <strong>1.</strong> Reusable cups made from recycled coffee grounds (on-brand + sustainable)<br />

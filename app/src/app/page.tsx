@@ -6,6 +6,7 @@ export default function Home() {
       {/* Nav */}
       <nav className="flex items-center justify-between px-8 py-5 max-w-6xl mx-auto">
         <div className="flex items-center gap-3">
+          <img src="/logo-wizard.jpg" alt="tevy2" className="w-8 h-8 rounded-lg" />
           <div className="text-xl font-bold">
             <span className="gradient-text">tevy2</span>
             <span className="text-[var(--muted)]">.ai</span>
@@ -81,7 +82,7 @@ export default function Home() {
       <section className="max-w-2xl mx-auto px-8 pb-20">
         <div className="glass rounded-2xl p-6 glow">
           <div className="flex items-center gap-3 mb-5 pb-4 border-b border-[var(--border)]">
-            <div className="w-8 h-8 rounded-full bg-[var(--accent)] flex items-center justify-center text-white text-sm font-bold">T</div>
+            <img src="/logo-wizard.jpg" alt="Tevy" className="w-8 h-8 rounded-full" />
             <div>
               <div className="font-semibold text-sm">Tevy</div>
               <div className="text-xs text-[var(--muted)]">Your marketing assistant</div>
@@ -93,7 +94,7 @@ export default function Home() {
           </div>
           <div className="space-y-4">
             <div className="flex gap-3">
-              <div className="w-6 h-6 rounded-full bg-[var(--accent)] flex-shrink-0 flex items-center justify-center text-white text-xs font-bold mt-1">T</div>
+              <img src="/logo-wizard.jpg" alt="Tevy" className="w-6 h-6 rounded-full flex-shrink-0 mt-1" />
               <div className="glass rounded-xl rounded-tl-sm px-4 py-3 text-sm max-w-[85%]">
                 Hey! I&apos;ve analyzed your website and social accounts. Here&apos;s what I found:
                 <br /><br />
@@ -109,7 +110,7 @@ export default function Home() {
               </div>
             </div>
             <div className="flex gap-3">
-              <div className="w-6 h-6 rounded-full bg-[var(--accent)] flex-shrink-0 flex items-center justify-center text-white text-xs font-bold mt-1">T</div>
+              <img src="/logo-wizard.jpg" alt="Tevy" className="w-6 h-6 rounded-full flex-shrink-0 mt-1" />
               <div className="glass rounded-xl rounded-tl-sm px-4 py-3 text-sm max-w-[85%]">
                 Here are 3 options for your summer collection post:<br /><br />
                 <strong>Option A</strong> (storytelling):<br />

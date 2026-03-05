@@ -26,6 +26,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex flex-col items-center justify-center px-8">
       <div className="glass rounded-2xl p-8 max-w-md w-full">
         <div className="text-center mb-8">
+          <img src="/logo-wizard.jpg" alt="tevy2" className="w-16 h-16 rounded-xl mx-auto mb-4" />
           <div className="text-2xl font-bold mb-2">
             <span className="gradient-text">tevy2</span>
             <span className="text-[var(--muted)]">.ai</span>

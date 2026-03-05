@@ -5,9 +5,7 @@ export default function ChatPage() {
     <div className="min-h-screen flex flex-col items-center justify-center px-8">
       <div className="glass rounded-2xl p-8 max-w-2xl w-full glow">
         <div className="flex items-center gap-3 mb-6 pb-4 border-b border-[var(--border)]">
-          <div className="w-10 h-10 rounded-full bg-[var(--accent)] flex items-center justify-center text-white font-bold">
-            T
-          </div>
+          <img src="/logo-wizard.jpg" alt="Tevy" className="w-10 h-10 rounded-full" />
           <div>
             <div className="font-semibold">Tevy</div>
             <div className="text-xs text-[var(--muted)]">Your marketing assistant</div>

@@ -579,6 +579,7 @@ function Nav() {
   return (
     <nav className="flex items-center justify-between px-8 py-5 max-w-4xl mx-auto w-full">
       <Link href="/" className="flex items-center gap-3">
+        <img src="/logo-wizard.jpg" alt="tevy2" className="w-7 h-7 rounded-lg" />
         <span className="text-xl font-bold">
           <span className="gradient-text">tevy2</span>
           <span className="text-[var(--muted)]">.ai</span>
