@@ -1,17 +1,20 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0a0a0a;
+  --background: #0d0b1a;
   --foreground: #ededed;
-  --accent: #6366f1;
-  --accent-light: #818cf8;
-  --surface: #141414;
-  --surface-light: #1e1e1e;
-  --border: #2a2a2a;
-  --muted: #737373;
+  --accent: #22c55e;
+  --accent-light: #4ade80;
+  --accent-yellow: #eab308;
+  --accent-yellow-light: #facc15;
+  --surface: #140f2a;
+  --surface-light: #1c1635;
+  --border: #2a2244;
+  --muted: #8b7faa;
   --green: #22c55e;
   --green-dim: rgba(34, 197, 94, 0.15);
-  --terminal-bg: #0c0c0c;
+  --yellow-dim: rgba(234, 179, 8, 0.15);
+  --terminal-bg: #0a0816;
   --terminal-green: #4ade80;
 }
 
@@ -27,20 +30,20 @@ body {
 }
 
 .gradient-text {
-  background: linear-gradient(135deg, #6366f1, #a78bfa, #c084fc);
+  background: linear-gradient(135deg, #22c55e, #4ade80, #eab308);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
 .glass {
-  background: rgba(20, 20, 20, 0.8);
+  background: rgba(20, 15, 42, 0.8);
   backdrop-filter: blur(12px);
   border: 1px solid var(--border);
 }
 
 .glow {
-  box-shadow: 0 0 40px rgba(99, 102, 241, 0.15);
+  box-shadow: 0 0 40px rgba(34, 197, 94, 0.15);
 }
 
 .glow-green {
@@ -85,7 +88,7 @@ body {
 /* Buttons */
 .btn-primary {
   background: var(--accent);
-  color: white;
+  color: #0d0b1a;
   padding: 12px 32px;
   border-radius: 10px;
   font-weight: 600;
@@ -98,7 +101,7 @@ body {
 .btn-primary:hover:not(:disabled) {
   background: var(--accent-light);
   transform: translateY(-1px);
-  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.3);
+  box-shadow: 0 4px 20px rgba(34, 197, 94, 0.3);
 }
 
 .btn-primary:disabled {
@@ -120,7 +123,7 @@ body {
 
 .btn-secondary:hover {
   border-color: var(--accent);
-  background: rgba(99, 102, 241, 0.1);
+  background: rgba(34, 197, 94, 0.1);
 }
 
 .btn-telegram {
@@ -159,7 +162,7 @@ body {
 }
 
 .input-field:focus {
-  border-color: var(--accent);
+  border-color: var(--accent-yellow);
 }
 
 .input-field::placeholder {
@@ -227,7 +230,7 @@ body {
 
 .upload-zone:hover {
   border-color: var(--accent);
-  background: rgba(99, 102, 241, 0.05);
+  background: rgba(34, 197, 94, 0.05);
 }
 
 /* Powered by badge */
