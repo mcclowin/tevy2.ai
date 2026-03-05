@@ -1,0 +1,99 @@
+name: Build Agent Image
+
+on:
+  # Manual trigger
+  workflow_dispatch:
+    inputs:
+      openclaw_version:
+        description: 'OpenClaw version (e.g. 0.9.5 or latest)'
+        required: false
+        default: 'latest'
+
+  # Auto-trigger: check for new OpenClaw version daily
+  schedule:
+    - cron: '0 6 * * *'  # 6am UTC daily
+
+  # Rebuild on agent-image changes
+  push:
+    branches: [main]
+    paths:
+      - 'agent-image/**'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/agent
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    outputs:
+      should_build: ${{ steps.check.outputs.should_build }}
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - name: Check latest OpenClaw version
+        id: check
+        run: |
+          LATEST=$(npm view openclaw version 2>/dev/null || echo "unknown")
+          echo "Latest OpenClaw version: $LATEST"
+          
+          # Get version from our last built image
+          CURRENT=$(docker manifest inspect ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest 2>/dev/null | \
+            jq -r '.annotations["org.opencontainers.image.description"]' 2>/dev/null || echo "none")
+          
+          echo "Current image version: $CURRENT"
+          echo "version=$LATEST" >> $GITHUB_OUTPUT
+          
+          if [ "$LATEST" != "$CURRENT" ] || [ "${{ github.event_name }}" == "push" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "should_build=true" >> $GITHUB_OUTPUT
+          else
+            echo "should_build=false" >> $GITHUB_OUTPUT
+            echo "No new version, skipping build"
+          fi
+
+  build:
+    needs: check-version
+    if: needs.check-version.outputs.should_build == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set version
+        id: version
+        run: |
+          VERSION=${{ github.event.inputs.openclaw_version || needs.check-version.outputs.version || 'latest' }}
+          echo "openclaw_version=$VERSION" >> $GITHUB_OUTPUT
+          # Image tag: use openclaw version + short sha
+          SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          echo "tag=${VERSION}-${SHA}" >> $GITHUB_OUTPUT
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: agent-image
+          push: true
+          build-args: |
+            OPENCLAW_VERSION=${{ steps.version.outputs.openclaw_version }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.tag }}
+          labels: |
+            org.opencontainers.image.description=openclaw@${{ steps.version.outputs.openclaw_version }}
+
+      - name: Summary
+        run: |
+          echo "### 🚀 Agent Image Built" >> $GITHUB_STEP_SUMMARY
+          echo "- OpenClaw: \`${{ steps.version.outputs.openclaw_version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Tag: \`${{ steps.version.outputs.tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Registry: \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}\`" >> $GITHUB_STEP_SUMMARY

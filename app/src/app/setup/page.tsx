@@ -3,6 +3,8 @@
 import { useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { sendMagicLink, createInstance } from "@/lib/api";
+import { getSession, setSession, isAuthenticated } from "@/lib/auth";
 
 type FormData = {
   email: string;
@@ -68,11 +70,27 @@ export default function SetupPage() {
   const handleSendEmail = async () => {
     if (!form.email) return;
     setEmailSent(true);
-    // TODO: Stytch magic link / OTP
-    setTimeout(() => {
-      setEmailVerified(true);
-      setActiveSection(2);
-    }, 2000);
+
+    try {
+      await sendMagicLink(form.email);
+      // Store setup state so callback redirects back here
+      sessionStorage.setItem("tevy2_pending_setup", JSON.stringify(form));
+      // For dev/demo: auto-verify after delay (real flow goes through email callback)
+      // In production, user clicks email link → /auth/callback → redirects back
+    } catch (err) {
+      console.error("Failed to send magic link:", err);
+      setEmailSent(false);
+    }
+
+    // TODO: Remove this mock — real flow uses email callback
+    // For local dev without Stytch, auto-verify after 2s
+    if (process.env.NEXT_PUBLIC_MOCK_AUTH === "true") {
+      setTimeout(() => {
+        setEmailVerified(true);
+        setSession("mock-session-token", { id: "mock-user", email: form.email });
+        setActiveSection(2);
+      }, 2000);
+    }
   };
 
   const handleTelegramAuth = () => {
@@ -107,12 +125,49 @@ export default function SetupPage() {
       "Configuring Telegram channel...",
       "Deploying agent instance...",
       "Running first brand analysis...",
-      "✓ Agent deployed successfully!",
     ];
 
-    for (let i = 0; i < steps.length; i++) {
-      await new Promise((resolve) => setTimeout(resolve, 800 + Math.random() * 600));
+    // Show deploy steps with animation
+    for (let i = 0; i < 3; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 600 + Math.random() * 400));
       setDeployLog((prev) => [...prev, steps[i]]);
+    }
+
+    // Actually call backend to provision
+    try {
+      const sessionToken = getSession();
+      const result = await createInstance(
+        {
+          ownerName: form.ownerName,
+          businessName: form.businessName,
+          websiteUrl: form.websiteUrl,
+          instagram: form.instagram,
+          tiktok: form.tiktok,
+          linkedin: form.linkedin,
+          twitter: form.twitter,
+          facebook: form.facebook,
+          competitors: form.competitors,
+          brandNotes: form.brandNotes,
+          postingGoal: "3-4 posts per week",
+          chatChannel: form.telegramConnected ? "telegram" : "webchat",
+        },
+        sessionToken || ""
+      );
+
+      // Continue animation after successful provision
+      for (let i = 3; i < steps.length; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        setDeployLog((prev) => [...prev, steps[i]]);
+      }
+
+      // Store instance info
+      sessionStorage.setItem("tevy2_instance", JSON.stringify(result.instance));
+
+      setDeployLog((prev) => [...prev, `✓ Agent deployed successfully! (${result.instance.region})`]);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Deploy failed";
+      setDeployLog((prev) => [...prev, `✗ Error: ${message}`]);
+      console.error("Deploy failed:", err);
     }
 
     setLoading(false);
