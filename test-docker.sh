@@ -48,8 +48,8 @@ elif ! docker image inspect "$IMAGE_NAME" &>/dev/null; then
 fi
 
 if [ "$NEEDS_BUILD" = true ]; then
-    echo "🔨 Building Docker image..."
-    docker build -t "$IMAGE_NAME" "$SCRIPT_DIR/agent-image"
+    echo "🔨 Building Docker image (no cache)..."
+    docker build --no-cache -t "$IMAGE_NAME" "$SCRIPT_DIR/agent-image"
     echo "✅ Image built."
 else
     echo "✅ Image exists (use --rebuild to force)."
