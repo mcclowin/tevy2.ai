@@ -1,14 +1,15 @@
-node_modules/
-.next/
+
+AGENTS.md
 dist/
+.DS_Store
 .env
 .env.local
+.env.test
 *.log
-.DS_Store
-
 # McClowin workspace files (not part of product)
-AGENTS.md
+memory/
+.next/
+node_modules/
+secrets.txt
 SOUL.md
 USER.md
-memory/
-secrets.txt
