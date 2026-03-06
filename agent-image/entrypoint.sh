@@ -86,6 +86,7 @@ fi
 
 # --- 2. Configure OpenClaw via onboard ---
 echo "Running OpenClaw onboard..."
+GATEWAY_TOKEN=$(head -c 32 /dev/urandom | xxd -p | head -c 48)
 openclaw onboard \
     --non-interactive \
     --accept-risk \
@@ -95,9 +96,11 @@ openclaw onboard \
     --workspace /workspace \
     --gateway-bind custom \
     --gateway-port 18789 \
-    --gateway-auth none \
+    --gateway-auth token \
+    --gateway-token "${GATEWAY_TOKEN}" \
     --skip-channels \
     --flow quickstart
+echo "  Gateway token: ${GATEWAY_TOKEN}"
 
 # Set model
 openclaw config set model "${MODEL:-claude-sonnet-4-20250514}" 2>/dev/null || true
