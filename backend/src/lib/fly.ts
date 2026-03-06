@@ -121,3 +121,47 @@ export async function listMachines(): Promise<FlyMachine[]> {
   if (!res.ok) throw new Error(`Fly list machines failed: ${res.status}`);
   return res.json() as Promise<FlyMachine[]>;
 }
+
+// Update a machine's image (rolling update)
+// Fly replaces the machine in-place: stop → update config → start
+export async function updateMachine(
+  machineId: string,
+  opts: { image?: string; envVars?: Record<string, string> }
+): Promise<FlyMachine> {
+  // Get current config first
+  const current = await getMachine(machineId);
+
+  const res = await flyFetch(`/machines/${machineId}`, {
+    method: "POST",
+    body: JSON.stringify({
+      config: {
+        image: opts.image || env.AGENT_IMAGE,
+        env: opts.envVars, // pass full env — Fly replaces, doesn't merge
+        services: [
+          {
+            ports: [
+              { port: 443, handlers: ["tls", "http"] },
+              { port: 80, handlers: ["http"] },
+            ],
+            protocol: "tcp",
+            internal_port: 18789,
+          },
+        ],
+        guest: {
+          cpu_kind: "shared",
+          cpus: 1,
+          memory_mb: 512,
+        },
+        auto_destroy: false,
+        restart: { policy: "on-failure" },
+      },
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Fly update machine failed (${res.status}): ${err}`);
+  }
+
+  return res.json() as Promise<FlyMachine>;
+}

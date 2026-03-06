@@ -91,6 +91,21 @@ jobs:
           labels: |
             org.opencontainers.image.description=openclaw@${{ steps.version.outputs.openclaw_version }}
 
+      # Rolling update: tell all running Fly machines to use the new image
+      - name: Update running instances
+        if: ${{ vars.BACKEND_URL }}
+        env:
+          BACKEND_URL: ${{ vars.BACKEND_URL }}
+          ADMIN_KEY: ${{ secrets.ADMIN_API_KEY }}
+        run: |
+          echo "Triggering rolling update on all running instances..."
+          curl -sf -X POST "${BACKEND_URL}/api/admin/update-all" \
+            -H "Authorization: Bearer ${ADMIN_KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{"image": "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"}' \
+            && echo "✅ Rolling update triggered" \
+            || echo "⚠️ Rolling update skipped (backend not reachable or no admin key)"
+
       - name: Summary
         run: |
           echo "### 🚀 Agent Image Built" >> $GITHUB_STEP_SUMMARY

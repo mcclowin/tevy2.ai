@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { supabase } from "../lib/supabase.js";
-import { createMachine, getMachine, startMachine, stopMachine, deleteMachine } from "../lib/fly.js";
+import { createMachine, getMachine, startMachine, stopMachine, deleteMachine, updateMachine } from "../lib/fly.js";
 import { authMiddleware } from "../middleware/auth.js";
 import { env } from "../env.js";
 
@@ -315,6 +315,67 @@ instances.delete("/:id", async (c) => {
   });
 
   return c.json({ success: true });
+});
+
+// POST /api/instances/:id/update — update instance to latest agent image
+instances.post("/:id/update", async (c) => {
+  const userId = c.get("userId") as string;
+  const instanceId = c.req.param("id");
+
+  const { data, error } = await supabase
+    .from("instances")
+    .select("*")
+    .eq("id", instanceId)
+    .eq("user_id", userId)
+    .single();
+
+  if (error || !data) return c.json({ error: "Instance not found" }, 404);
+
+  try {
+    // Rebuild env vars from stored config
+    const config = data.config as Record<string, unknown> || {};
+    const socials = config.socials as Record<string, string> || {};
+
+    const agentEnv: Record<string, string> = {
+      INSTANCE_ID: data.fly_machine_name,
+      OWNER_NAME: (config.ownerName as string) || "",
+      BUSINESS_NAME: data.business_name || "",
+      WEBSITE_URL: data.website_url || "",
+      INSTAGRAM: socials.instagram || "",
+      TIKTOK: socials.tiktok || "",
+      LINKEDIN: socials.linkedin || "",
+      TWITTER: socials.twitter || "",
+      FACEBOOK: socials.facebook || "",
+      POSTING_GOAL: (config.postingGoal as string) || "3-4 posts per week",
+      CHAT_CHANNEL: data.chat_channel || "webchat",
+      TIMEZONE: "UTC",
+      ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY,
+      MODEL: env.DEFAULT_MODEL,
+    };
+
+    if (config.competitors) {
+      const competitorsMd = generateCompetitorsMd(config.competitors as string);
+      agentEnv.COMPETITORS_B64 = Buffer.from(competitorsMd).toString("base64");
+    }
+
+    await updateMachine(data.fly_machine_id, { envVars: agentEnv });
+
+    await supabase
+      .from("instances")
+      .update({ updated_at: new Date().toISOString() })
+      .eq("id", instanceId);
+
+    await supabase.from("usage_logs").insert({
+      instance_id: instanceId,
+      event: "updated",
+      metadata: { image: env.AGENT_IMAGE },
+    });
+
+    return c.json({ success: true, message: "Instance updated to latest image" });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Update failed";
+    return c.json({ error: message }, 500);
+  }
 });
 
 // Helper: generate competitors markdown
