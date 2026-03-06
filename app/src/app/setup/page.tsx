@@ -10,17 +10,33 @@ export default function SetupPage() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cooldown, setCooldown] = useState(0);
+
+  // Cooldown timer
+  useState(() => {
+    const interval = setInterval(() => {
+      setCooldown((c) => (c > 0 ? c - 1 : 0));
+    }, 1000);
+    return () => clearInterval(interval);
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !email.includes("@")) return;
+    if (!email || !email.includes("@") || cooldown > 0) return;
 
     try {
       setError(null);
       await sendMagicLink(email);
       setSent(true);
+      setCooldown(60); // 60s cooldown to avoid rate limits
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to send link");
+      const msg = err instanceof Error ? err.message : "Failed to send link";
+      if (msg.includes("rate") || msg.includes("too many") || msg.includes("429")) {
+        setError("Too many attempts. Please wait a minute and try again.");
+        setCooldown(60);
+      } else {
+        setError(msg);
+      }
     }
 
     // Mock auth for local dev
@@ -53,6 +69,11 @@ export default function SetupPage() {
             <p className="text-xs text-[var(--muted)] mb-6">
               Click the link to sign in. You&apos;ll be redirected to your dashboard.
             </p>
+            {cooldown > 0 && (
+              <p className="text-xs text-[var(--muted)] mb-4">
+                You can resend in {cooldown}s
+              </p>
+            )}
             <button
               onClick={() => { setSent(false); setError(null); }}
               className="text-sm text-[var(--accent-light)] hover:underline"
@@ -88,9 +109,9 @@ export default function SetupPage() {
               <button
                 type="submit"
                 className="btn-primary w-full"
-                disabled={!email || !email.includes("@")}
+                disabled={!email || !email.includes("@") || cooldown > 0}
               >
-                Continue →
+                {cooldown > 0 ? `Wait ${cooldown}s` : "Continue →"}
               </button>
 
               <p className="text-center text-xs text-[var(--muted)]">
