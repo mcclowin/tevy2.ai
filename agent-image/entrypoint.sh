@@ -118,9 +118,7 @@ config = {
             'model': os.environ.get('MODEL', 'claude-sonnet-4-20250514')
         }
     },
-    'channels': {
-        'webchat': {'enabled': True}
-    },
+    'channels': {},
     'plugins': {'entries': {}}
 }
 
