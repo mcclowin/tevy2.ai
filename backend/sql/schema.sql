@@ -9,6 +9,7 @@ create table if not exists public.instances (
   user_email        text,
   fly_machine_id    text not null,
   fly_machine_name  text not null,
+  fly_volume_id     text,                    -- persistent volume for memory/
   status            text default 'provisioning',  -- provisioning | running | stopped | error | deleted
   region            text default 'lhr',
   plan              text default 'starter',       -- starter | pro

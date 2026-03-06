@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { supabase } from "../lib/supabase.js";
-import { createMachine, getMachine, startMachine, stopMachine, deleteMachine, updateMachine } from "../lib/fly.js";
+import { createMachine, getMachine, startMachine, stopMachine, deleteMachine, updateMachine, deleteVolume } from "../lib/fly.js";
 import { authMiddleware } from "../middleware/auth.js";
 import { env } from "../env.js";
 
@@ -107,6 +107,7 @@ instances.post("/", async (c) => {
         user_email: userEmail,
         fly_machine_id: machine.id,
         fly_machine_name: instanceName,
+        fly_volume_id: machine.volumeId || null,
         status: "running",
         region: machine.region,
         plan: "starter",
@@ -302,6 +303,15 @@ instances.delete("/:id", async (c) => {
     await deleteMachine(data.fly_machine_id);
   } catch {
     // Machine might already be gone
+  }
+
+  // Clean up persistent volume
+  if (data.fly_volume_id) {
+    try {
+      await deleteVolume(data.fly_volume_id);
+    } catch {
+      // Volume might already be gone
+    }
   }
 
   await supabase

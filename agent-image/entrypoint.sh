@@ -35,11 +35,15 @@ ${FACEBOOK:+- **Facebook:** $FACEBOOK}
 ${POSTING_GOAL:-3-4 posts per week}
 EOF
 
-# Brand profile — injected if provided, otherwise placeholder
-if [ -n "$BRAND_PROFILE_B64" ]; then
-    echo "$BRAND_PROFILE_B64" | base64 -d > /workspace/memory/brand-profile.md
-else
-    cat > /workspace/memory/brand-profile.md <<EOF
+# --- Memory files: only write if they DON'T already exist ---
+# (Persistent volume preserves them across restarts/updates)
+
+# Brand profile
+if [ ! -f /workspace/memory/brand-profile.md ]; then
+    if [ -n "$BRAND_PROFILE_B64" ]; then
+        echo "$BRAND_PROFILE_B64" | base64 -d > /workspace/memory/brand-profile.md
+    else
+        cat > /workspace/memory/brand-profile.md <<EOF
 # Brand Profile
 
 > Pending analysis. Tevy will scrape ${WEBSITE_URL:-the website} and fill this in.
@@ -48,14 +52,21 @@ else
 - **Name:** ${BUSINESS_NAME:-My Business}
 - **Website:** ${WEBSITE_URL:-}
 EOF
+    fi
+    echo "  brand-profile.md: created"
+else
+    echo "  brand-profile.md: exists (preserved)"
 fi
 
-# Competitors — injected if provided
-if [ -n "$COMPETITORS_B64" ]; then
+# Competitors
+if [ ! -f /workspace/memory/competitors.md ] && [ -n "$COMPETITORS_B64" ]; then
     echo "$COMPETITORS_B64" | base64 -d > /workspace/memory/competitors.md
+    echo "  competitors.md: created"
+else
+    echo "  competitors.md: $([ -f /workspace/memory/competitors.md ] && echo 'exists (preserved)' || echo 'skipped')"
 fi
 
-# Content calendar — empty template
+# Content calendar
 if [ ! -f /workspace/memory/content-calendar.md ]; then
     cat > /workspace/memory/content-calendar.md <<EOF
 # Content Calendar
@@ -68,6 +79,9 @@ if [ ! -f /workspace/memory/content-calendar.md ]; then
 ## Published
 (none yet)
 EOF
+    echo "  content-calendar.md: created"
+else
+    echo "  content-calendar.md: exists (preserved)"
 fi
 
 # --- 2. Write OpenClaw config ---

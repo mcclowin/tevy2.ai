@@ -47,14 +47,58 @@ async function flyFetch(path: string, options: RequestInit = {}): Promise<Respon
   return res;
 }
 
+// Create a persistent volume for agent memory
+async function createVolume(name: string, region: string): Promise<{ id: string }> {
+  const res = await flyFetch("/volumes", {
+    method: "POST",
+    body: JSON.stringify({
+      name,
+      region,
+      size_gb: 1, // 1GB is plenty for markdown files
+      encrypted: true,
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Fly create volume failed (${res.status}): ${err}`);
+  }
+
+  return res.json() as Promise<{ id: string }>;
+}
+
+export async function deleteVolume(volumeId: string): Promise<void> {
+  const res = await flyFetch(`/volumes/${volumeId}`, { method: "DELETE" });
+  if (!res.ok) {
+    // Volume might already be gone
+    console.warn(`Fly delete volume returned ${res.status}`);
+  }
+}
+
 export async function createMachine(opts: {
   name: string;
   envVars: Record<string, string>;
   region?: string;
-}): Promise<FlyMachine> {
-  const payload: FlyMachineConfig = {
+}): Promise<FlyMachine & { volumeId?: string }> {
+  const region = opts.region || env.FLY_REGION;
+
+  // Create a persistent volume for memory/
+  const volName = opts.name.replace(/[^a-z0-9_]/g, "_");
+  let volumeId: string | undefined;
+  try {
+    const vol = await createVolume(volName, region);
+    volumeId = vol.id;
+  } catch (err) {
+    console.warn("Volume creation failed, running without persistence:", err);
+  }
+
+  const mounts = volumeId
+    ? [{ volume: volumeId, path: "/workspace/memory" }]
+    : [];
+
+  const payload = {
     name: opts.name,
-    region: opts.region || env.FLY_REGION,
+    region,
     config: {
       image: env.AGENT_IMAGE,
       env: {
@@ -62,6 +106,7 @@ export async function createMachine(opts: {
         ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY,
         MODEL: env.DEFAULT_MODEL,
       },
+      mounts,
       services: [
         {
           ports: [
@@ -89,10 +134,13 @@ export async function createMachine(opts: {
 
   if (!res.ok) {
     const err = await res.text();
+    // Clean up volume if machine creation fails
+    if (volumeId) await deleteVolume(volumeId).catch(() => {});
     throw new Error(`Fly create machine failed (${res.status}): ${err}`);
   }
 
-  return res.json() as Promise<FlyMachine>;
+  const machine = await res.json() as FlyMachine;
+  return { ...machine, volumeId };
 }
 
 export async function getMachine(machineId: string): Promise<FlyMachine> {
