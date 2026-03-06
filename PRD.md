@@ -205,8 +205,9 @@ memory/
 | Image gen | Social media creatives | Master (shared) |
 
 ### Channel Config
-- Telegram OR WhatsApp OR Webchat (user chooses during onboarding)
-- Webchat always available on dashboard as fallback
+- Telegram primary (user provides bot token during onboarding)
+- WhatsApp, Discord, Slack — coming soon
+- **Security: Telegram bots are locked to the owner only** — `dmPolicy: "allowlist"` with `allowFrom` set to the user's Telegram ID (collected during onboarding). No one else can message their bot. This prevents abuse and ensures billing accuracy.
 
 ---
 
