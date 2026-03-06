@@ -80,94 +80,86 @@ else
 fi
 
 # --- 2. Write OpenClaw config directly ---
-# Using the exact JSON format OpenClaw expects (openclaw.json, not yaml)
-mkdir -p /root/.openclaw
+mkdir -p /root/.openclaw /root/.openclaw/agents/main/agent
 
 GATEWAY_TOKEN=$(cat /proc/sys/kernel/random/uuid | tr -d '-')
 
-# Build telegram channel config if token provided
-TELEGRAM_CONFIG=""
-if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
-    TELEGRAM_CONFIG=$(cat <<EOJSON
-,
-    "telegram": {
-      "enabled": true,
-      "botToken": "${TELEGRAM_BOT_TOKEN}",
-      "dmPolicy": "open",
-      "streaming": true
+# Use python3 to generate valid JSON (avoids shell escaping issues with tokens)
+python3 -c "
+import json, os
+
+config = {
+    'wizard': {
+        'lastRunAt': '$(date -u +%Y-%m-%dT%H:%M:%S.000Z)',
+        'lastRunVersion': '2026.3.2',
+        'lastRunCommand': 'onboard',
+        'lastRunMode': 'local'
+    },
+    'auth': {
+        'profiles': {
+            'anthropic:default': {
+                'provider': 'anthropic',
+                'mode': 'token'
+            }
+        }
+    },
+    'gateway': {
+        'port': 18789,
+        'mode': 'local',
+        'bind': 'custom',
+        'customBind': '0.0.0.0',
+        'auth': {
+            'mode': 'token',
+            'token': '${GATEWAY_TOKEN}'
+        }
+    },
+    'agents': {
+        'defaults': {
+            'workspace': '/workspace'
+        }
+    },
+    'channels': {
+        'webchat': {'enabled': True}
+    },
+    'plugins': {'entries': {}},
+    'model': os.environ.get('MODEL', 'claude-sonnet-4-20250514')
+}
+
+tg_token = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+if tg_token:
+    config['channels']['telegram'] = {
+        'enabled': True,
+        'botToken': tg_token,
+        'dmPolicy': 'open',
+        'streaming': True
     }
-EOJSON
-)
+    config['plugins']['entries']['telegram'] = {'enabled': True}
+
+with open('/root/.openclaw/openclaw.json', 'w') as f:
+    json.dump(config, f, indent=2)
+
+# Auth profiles
+auth = {
+    'version': 1,
+    'profiles': {
+        'anthropic:default': {
+            'type': 'token',
+            'provider': 'anthropic',
+            'token': os.environ['ANTHROPIC_API_KEY']
+        }
+    },
+    'lastGood': {'anthropic': 'anthropic:default'}
+}
+
+with open('/root/.openclaw/agents/main/agent/auth-profiles.json', 'w') as f:
+    json.dump(auth, f, indent=2)
+"
+
+if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
     echo "  Telegram: enabled"
 fi
-
-cat > /root/.openclaw/openclaw.json <<EOJSON
-{
-  "wizard": {
-    "lastRunAt": "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)",
-    "lastRunVersion": "2026.3.2",
-    "lastRunCommand": "onboard",
-    "lastRunMode": "local"
-  },
-  "auth": {
-    "profiles": {
-      "anthropic:default": {
-        "provider": "anthropic",
-        "mode": "token"
-      }
-    }
-  },
-  "gateway": {
-    "port": 18789,
-    "mode": "local",
-    "bind": "custom",
-    "customBind": "0.0.0.0",
-    "auth": {
-      "mode": "token",
-      "token": "${GATEWAY_TOKEN}"
-    }
-  },
-  "agents": {
-    "defaults": {
-      "workspace": "/workspace"
-    }
-  },
-  "channels": {
-    "webchat": {
-      "enabled": true
-    }${TELEGRAM_CONFIG}
-  },
-  "plugins": {
-    "entries": {
-      "telegram": {
-        "enabled": ${TELEGRAM_BOT_TOKEN:+true}${TELEGRAM_BOT_TOKEN:-false}
-      }
-    }
-  },
-  "model": "${MODEL:-claude-sonnet-4-20250514}"
-}
-EOJSON
-
 echo "  Config written to /root/.openclaw/openclaw.json"
 echo "  Gateway token: ${GATEWAY_TOKEN}"
-
-# Store API key where OpenClaw expects it (auth-profiles.json per agent)
-mkdir -p /root/.openclaw/agents/main/agent
-cat > /root/.openclaw/agents/main/agent/auth-profiles.json <<EOJSON
-{
-  "version": 1,
-  "profiles": {
-    "anthropic:default": {
-      "type": "token",
-      "provider": "anthropic",
-      "token": "${ANTHROPIC_API_KEY}"
-    }
-  },
-  "lastGood": {
-    "anthropic": "anthropic:default"
-  }
-}
-EOJSON
 
 # --- 3. Start OpenClaw gateway ---
 echo "Starting OpenClaw gateway..."
