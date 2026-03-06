@@ -84,33 +84,32 @@ else
     echo "  content-calendar.md: exists (preserved)"
 fi
 
-# --- 2. Write OpenClaw config ---
-mkdir -p /root/.openclaw
+# --- 2. Configure OpenClaw via onboard ---
+echo "Running OpenClaw onboard..."
+openclaw onboard \
+    --non-interactive \
+    --accept-risk \
+    --auth-choice token \
+    --token-provider anthropic \
+    --token "${ANTHROPIC_API_KEY}" \
+    --workspace /workspace \
+    --gateway-bind custom \
+    --gateway-port 18789 \
+    --gateway-auth none \
+    --skip-channels \
+    --flow quickstart
 
-cat > /root/.openclaw/config.yaml <<EOF
-gateway:
-  mode: local
-  port: 18789
-  bind: custom
-  customBind: 0.0.0.0
-  auth: none
-workspace: /workspace
-channels:
-  webchat:
-    enabled: true
-providers:
-  anthropic:
-    apiKey: "${ANTHROPIC_API_KEY}"
-model: "${MODEL:-claude-sonnet-4-20250514}"
-EOF
+# Set model
+openclaw config set model "${MODEL:-claude-sonnet-4-20250514}" 2>/dev/null || true
 
-# Add Telegram channel if bot token provided
+# Enable webchat
+openclaw config set channels.webchat.enabled true 2>/dev/null || true
+
+# Enable Telegram if token provided
 if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
-    cat >> /root/.openclaw/config.yaml <<EOF
-  telegram:
-    enabled: true
-    botToken: "${TELEGRAM_BOT_TOKEN}"
-EOF
+    openclaw config set channels.telegram.enabled true 2>/dev/null || true
+    openclaw config set channels.telegram.botToken "${TELEGRAM_BOT_TOKEN}" 2>/dev/null || true
+    openclaw config set channels.telegram.dmPolicy open 2>/dev/null || true
     echo "  Telegram: enabled"
 fi
 
