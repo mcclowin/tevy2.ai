@@ -1,3 +1,4 @@
+import "dotenv/config";
 import type { Context, Next } from "hono";
 import { supabase } from "../lib/supabase.js";
 
