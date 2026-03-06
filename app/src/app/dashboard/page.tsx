@@ -26,7 +26,6 @@ const NAV_ITEMS = [
   { id: "connect", icon: "🔗", label: "Connect" },
   { id: "analytics", icon: "📊", label: "Analytics" },
   { id: "research", icon: "🔍", label: "Research" },
-  { id: "chat", icon: "💬", label: "Chat" },
 ];
 
 export default function DashboardPage() {
@@ -84,8 +83,7 @@ export default function DashboardPage() {
         ) : (
           <>
             {activeTab === "home" && <HomeTab />}
-            {activeTab === "chat" && <ChatTab />}
-            {activeTab !== "home" && activeTab !== "chat" && (
+            {activeTab !== "home" && (
               <div className="p-8 max-w-4xl">
                 <h1 className="text-2xl font-bold mb-2 capitalize">{activeTab}</h1>
                 <p className="text-[var(--muted)]">Coming soon — Tevy is setting things up.</p>
@@ -183,25 +181,10 @@ function OnboardingPanel({ onComplete }: { onComplete: () => void }) {
         <div>
           <h1 className="text-2xl font-bold mb-2">How do you want to chat with Tevy?</h1>
           <p className="text-sm text-[var(--muted)] mb-6">
-            Webchat is always available in your dashboard. You can also add Telegram for mobile access.
+            Choose your preferred channel. You can add more later.
           </p>
 
-          {/* Webchat — always on */}
-          <div className="glass rounded-xl p-4 mb-3 border border-[var(--green-dim)]">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-lg bg-[var(--surface-light)] flex items-center justify-center text-xl">💬</div>
-              <div className="flex-1">
-                <div className="font-semibold text-sm flex items-center gap-2">
-                  Webchat
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--green-dim)] text-[var(--green)]">Always on</span>
-                </div>
-                <p className="text-xs text-[var(--muted)]">Chat with Tevy right here in your dashboard</p>
-              </div>
-              <span className="text-[var(--green)]">✓</span>
-            </div>
-          </div>
-
-          {/* Telegram — optional add */}
+          {/* Telegram — primary */}
           <button
             onClick={() => update("addTelegram", !form.addTelegram)}
             className={`w-full glass rounded-xl p-4 mb-3 text-left transition-all ${
@@ -216,7 +199,7 @@ function OnboardingPanel({ onComplete }: { onComplete: () => void }) {
               </div>
               <div className="flex-1">
                 <div className="font-semibold text-sm flex items-center gap-2">
-                  Also add Telegram
+                  Telegram
                   <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--surface-light)] text-[var(--accent-light)]">Recommended</span>
                 </div>
                 <p className="text-xs text-[var(--muted)]">Chat with Tevy from your phone, anytime</p>
@@ -455,21 +438,4 @@ function HomeTab() {
   );
 }
 
-function ChatTab() {
-  return (
-    <div className="p-8 max-w-3xl h-full flex flex-col">
-      <h1 className="text-2xl font-bold mb-1">Chat with Tevy</h1>
-      <p className="text-[var(--muted)] mb-6">Webchat — also available on Telegram</p>
 
-      <div className="glass rounded-2xl flex-1 flex flex-col overflow-hidden min-h-[400px]">
-        <div className="flex-1 p-6 flex items-center justify-center">
-          <div className="text-center">
-            <img src="/logo-wizard.jpg" alt="Tevy" className="w-16 h-16 rounded-full mx-auto mb-4" />
-            <h3 className="font-semibold mb-2">Webchat loading...</h3>
-            <p className="text-sm text-[var(--muted)]">Will embed your agent&apos;s OpenClaw webchat here.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
