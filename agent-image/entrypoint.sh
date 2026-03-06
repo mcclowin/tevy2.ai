@@ -106,8 +106,7 @@ config = {
     'gateway': {
         'port': 18789,
         'mode': 'local',
-        'bind': 'custom',
-        'customBind': '0.0.0.0',
+        'bind': 'lan',
         'auth': {
             'mode': 'token',
             'token': '${GATEWAY_TOKEN}'
@@ -115,14 +114,14 @@ config = {
     },
     'agents': {
         'defaults': {
-            'workspace': '/workspace'
+            'workspace': '/workspace',
+            'model': os.environ.get('MODEL', 'claude-sonnet-4-20250514')
         }
     },
     'channels': {
         'webchat': {'enabled': True}
     },
-    'plugins': {'entries': {}},
-    'model': os.environ.get('MODEL', 'claude-sonnet-4-20250514')
+    'plugins': {'entries': {}}
 }
 
 tg_token = os.environ.get('TELEGRAM_BOT_TOKEN', '')
@@ -131,7 +130,8 @@ if tg_token:
         'enabled': True,
         'botToken': tg_token,
         'dmPolicy': 'open',
-        'streaming': True
+        'allowFrom': ['*'],
+        'streaming': 'partial'
     }
     config['plugins']['entries']['telegram'] = {'enabled': True}
 
@@ -161,6 +161,10 @@ fi
 echo "  Config written to /root/.openclaw/openclaw.json"
 echo "  Gateway token: ${GATEWAY_TOKEN}"
 
-# --- 3. Start OpenClaw gateway ---
+# --- 3. Auto-fix any config issues ---
+echo "Running doctor --fix..."
+openclaw doctor --fix 2>&1 || true
+
+# --- 4. Start OpenClaw gateway ---
 echo "Starting OpenClaw gateway..."
 exec openclaw gateway run
