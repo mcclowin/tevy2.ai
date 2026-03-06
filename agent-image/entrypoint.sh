@@ -111,4 +111,4 @@ fi
 
 # --- 3. Start OpenClaw gateway ---
 echo "Starting OpenClaw gateway..."
-exec openclaw gateway start --foreground
+exec openclaw gateway run
