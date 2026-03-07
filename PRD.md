@@ -361,6 +361,11 @@ workspace/
 4. **Stripe:** Need account + product/price IDs
 5. **Demo business:** Which real/fake business to test with?
 
+## 15. TODO — Dashboard & Agent Improvements
+
+- [ ] **Tavily built-in:** Pre-configure Tavily API key in every agent instance for web search / browser access. Should be a master key injected via env vars at provisioning time (not user-provided).
+- [ ] **Show username on dashboard:** Display the logged-in user's name/email somewhere visible on the dashboard (sidebar, header, or account dropdown).
+
 ---
 
 *Created: 2026-03-04 | Last updated: 2026-03-04*
