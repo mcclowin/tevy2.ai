@@ -139,27 +139,34 @@ function OnboardingPanel({ onComplete }: { onComplete: () => void }) {
       setDeployLog((prev) => [...prev, line]);
     }
 
-    try {
-      await createInstance({
-        ownerName: form.ownerName,
-        businessName: form.businessName,
-        websiteUrl: form.websiteUrl,
-        instagram: form.instagram,
-        tiktok: form.tiktok,
-        linkedin: form.linkedin,
-        twitter: form.twitter,
-        facebook: form.facebook,
-        competitors: form.competitors,
-        brandNotes: form.brandNotes,
-        postingGoal: "3-4 posts per week",
-        chatChannel: form.addTelegram ? "telegram" : "webchat",
-        telegramBotToken: form.addTelegram ? form.telegramBotToken : undefined,
-      });
+    // Mock mode: skip real API call, just show success
+    if (process.env.NEXT_PUBLIC_MOCK_DEPLOY === "true") {
+      await new Promise((r) => setTimeout(r, 1000));
       setDeployLog((prev) => [...prev, "✓ Agent deployed successfully!"]);
       setTimeout(onComplete, 2000);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Deploy failed";
-      setDeployLog((prev) => [...prev, `✗ Error: ${msg}`]);
+    } else {
+      try {
+        await createInstance({
+          ownerName: form.ownerName,
+          businessName: form.businessName,
+          websiteUrl: form.websiteUrl,
+          instagram: form.instagram,
+          tiktok: form.tiktok,
+          linkedin: form.linkedin,
+          twitter: form.twitter,
+          facebook: form.facebook,
+          competitors: form.competitors,
+          brandNotes: form.brandNotes,
+          postingGoal: "3-4 posts per week",
+          chatChannel: form.addTelegram ? "telegram" : "webchat",
+          telegramBotToken: form.addTelegram ? form.telegramBotToken : undefined,
+        });
+        setDeployLog((prev) => [...prev, "✓ Agent deployed successfully!"]);
+        setTimeout(onComplete, 2000);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Deploy failed";
+        setDeployLog((prev) => [...prev, `✗ Error: ${msg}`]);
+      }
     }
 
     setLoading(false);
