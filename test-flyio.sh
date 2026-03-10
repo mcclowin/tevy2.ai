@@ -34,6 +34,7 @@ AGENT_IMAGE="${AGENT_IMAGE:-ghcr.io/mcclowin/tevy2.ai/agent:latest}"
 TEST_NAME="tevy-flytest-$(date +%s | tail -c 6)"
 TEST_BUSINESS="${TEST_BUSINESS_NAME:-Fly Test Coffee}"
 TEST_WEBSITE="${TEST_WEBSITE_URL:-https://bluebottlecoffee.com}"
+SOAK_MINUTES="${SOAK_MINUTES:-20}"
 
 # --- Helpers ---
 fly_api() {
@@ -292,7 +293,7 @@ EOF
         echo "   Homepage: HTTP $CHAT_CODE"
     fi
     
-    # --- Step 6: Cleanup or keep ---
+    # --- Step 6: Soak test or keep ---
     echo ""
     if [ "$keep" = true ]; then
         echo "6️⃣  --keep flag set. Instance left running."
@@ -304,7 +305,32 @@ EOF
         echo "   To clean up later:"
         echo "   ./test-flyio.sh --cleanup $MACHINE_ID"
     else
-        echo "6️⃣  Cleaning up..."
+        echo "6️⃣  Soak test — running for ${SOAK_MINUTES} minutes before cleanup..."
+        echo "   Webchat: $AGENT_URL"
+        echo "   Machine: $MACHINE_ID"
+        echo "   Press Ctrl+C to skip wait and cleanup now."
+        echo ""
+        
+        SOAK_SECS=$((SOAK_MINUTES * 60))
+        ELAPSED=0
+        
+        trap 'echo ""; echo "   ⏩ Skipping wait, cleaning up..."; break' INT
+        while [ $ELAPSED -lt $SOAK_SECS ]; do
+            REMAINING=$(( (SOAK_SECS - ELAPSED) / 60 ))
+            REMAIN_SEC=$(( (SOAK_SECS - ELAPSED) % 60 ))
+            
+            # Quick health ping
+            HEALTH_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "$AGENT_URL/health" 2>/dev/null || echo "000")
+            
+            printf "\r   ⏳ %02d:%02d remaining — health: %s  " "$REMAINING" "$REMAIN_SEC" "$HEALTH_CODE"
+            sleep 30
+            ELAPSED=$((ELAPSED + 30))
+        done
+        trap - INT
+        
+        echo ""
+        echo ""
+        echo "7️⃣  Cleaning up..."
         
         echo -n "   Deleting machine... "
         fly_api DELETE "/machines/${MACHINE_ID}?force=true" >/dev/null 2>&1
@@ -312,7 +338,6 @@ EOF
         
         if [ -n "$VOLUME_ID" ]; then
             echo -n "   Deleting volume... "
-            # Machine must be fully stopped before volume delete — small delay
             sleep 3
             fly_api DELETE "/volumes/$VOLUME_ID" >/dev/null 2>&1
             echo "✅"
