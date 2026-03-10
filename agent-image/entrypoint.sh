@@ -170,7 +170,7 @@ mkdir -p /var/tmp/openclaw-compile-cache
 export OPENCLAW_NO_RESPAWN=1
 
 # Limit Node.js heap to fit in container memory
-export NODE_OPTIONS="--max-old-space-size=512"
+export NODE_OPTIONS="--max-old-space-size=1024"
 
 # --- 4. Start OpenClaw gateway (skip doctor to save memory) ---
 echo "Starting OpenClaw gateway..."

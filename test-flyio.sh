@@ -212,7 +212,7 @@ cmd_test() {
         "guest": {
             "cpu_kind": "shared",
             "cpus": 1,
-            "memory_mb": 1024
+            "memory_mb": 2048
         },
         "auto_destroy": false,
         "restart": {"policy": "on-failure"}

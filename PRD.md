@@ -142,7 +142,20 @@ The dashboard provides:
 - **Supported platforms (MVP):** Instagram, TikTok, LinkedIn, X
 - **Future:** Facebook, YouTube, Pinterest
 
-### 6.3 Market Research (Pillar 3)
+### 6.3 SEO (Pillar 3)
+- **Site audit:** Agent crawls user's website and checks technical SEO (meta tags, headings, OG tags, sitemap, robots.txt, broken links, page speed, mobile-friendliness)
+- **Keyword research:** Discovers target keywords in user's niche, analyzes what competitors rank for, identifies content gaps
+- **Content optimization:** Reviews blog posts / landing pages before publishing — recommends title tags, meta descriptions, heading structure, semantic keywords, internal linking
+- **Ongoing monitoring:** Periodic re-crawls to catch regressions (new broken links, missing meta tags, etc.)
+- **Output:** SEO audit report delivered via chat + stored in memory/seo/. Actionable recommendations prioritized by impact.
+- **Tools:** Tavily (search + extract), web_fetch, browser (for JS-rendered pages)
+- **Framework:**
+  1. Initial audit on onboarding (after brand analysis)
+  2. Keyword research based on brand niche + competitors
+  3. Content optimization on request ("review this blog post for SEO")
+  4. Weekly/monthly re-audit with delta report ("3 new issues since last check")
+
+### 6.4 Market Research (Pillar 4)
 - **Competitor tracking:** Monitor competitor social accounts (posts, engagement, themes)
 - **Industry trends:** Web search for trending topics in user's niche
 - **Audience insights:** Scrape reviews, forums, Reddit for pain points and language
@@ -189,6 +202,10 @@ memory/
 ├── brand-profile.md      # Brand vibe, audience, value prop, tone
 ├── competitors.md        # Tracked competitors + notes
 ├── content-calendar.md   # Scheduled and past posts
+├── seo/
+│   ├── audit.md          # Latest site audit results
+│   ├── keywords.md       # Target keywords + opportunities
+│   └── YYYY-MM-DD.md     # Periodic re-audit deltas
 ├── research/
 │   └── YYYY-MM-DD.md     # Research digests
 └── conversations/
@@ -256,7 +273,7 @@ memory/
 - [ ] Analytics
 - [ ] Multi-user provisioning / billing
 - [ ] Image/video generation
-- [ ] Ad campaigns, SEO, CRM
+- [ ] Ad campaigns, CRM
 
 ---
 
@@ -279,7 +296,25 @@ workspace/
 └── memory/
 ```
 
-### Skills We Ship (MVP)
+### Skills We Ship
+
+**seo-auditor**
+- Input: Website URL from brand-profile.md
+- Tools: web_fetch, web_search (Tavily), browser
+- Output: Writes memory/seo/audit.md + prioritized fix list via chat
+- Does: Crawls site, checks meta tags, headings, OG tags, sitemap, robots.txt, broken links, page speed signals, mobile-friendliness, internal linking structure
+
+**keyword-researcher**
+- Input: Industry/niche + competitors from brand-profile.md
+- Tools: web_search (Tavily), web_fetch
+- Output: Writes memory/seo/keywords.md
+- Does: Discovers target keywords, analyzes competitor ranking pages, identifies content gaps, groups by search intent
+
+**content-seo**
+- Input: Draft content + target keyword
+- Tools: web_search (Tavily), web_fetch
+- Output: Optimized content + meta tag recommendations via chat
+- Does: Analyzes top-ranking pages, recommends title/meta/headings/semantic keywords/internal links
 
 **brand-analyzer**
 - Input: Website URL, social profile links
@@ -304,6 +339,24 @@ workspace/
 - Tools: web_search (Tavily), web_fetch
 - Output: Writes memory/research/YYYY-MM-DD.md
 - Does: Searches for trending topics, audience pain points, industry news
+
+**seo-auditor**
+- Input: Website URL from brand-profile.md
+- Tools: web_fetch, web_search (Tavily), browser
+- Output: Writes memory/seo-audit.md + actionable recommendations via chat
+- Does: Crawls site pages, checks meta titles/descriptions, heading structure, Open Graph tags, canonical URLs, robots.txt, sitemap.xml, page speed indicators, mobile-friendliness, internal linking, broken links. Generates prioritized fix list.
+
+**keyword-researcher**
+- Input: Industry/niche + competitors from brand-profile.md
+- Tools: web_search (Tavily), web_fetch
+- Output: Writes memory/seo/keywords.md
+- Does: Discovers high-intent keywords in the user's niche, analyzes competitor ranking pages, identifies content gaps and opportunities, suggests target keywords grouped by intent (informational, commercial, transactional).
+
+**content-seo**
+- Input: Draft blog post/page + target keyword
+- Tools: web_search (Tavily), web_fetch
+- Output: SEO-optimized content + recommendations via chat
+- Does: Analyzes top-ranking pages for target keyword, recommends title tags, meta descriptions, heading structure, internal links, content length, and semantic keywords to include. Can review existing pages or optimize new drafts before publishing.
 
 ### Phase 2 Skills
 
@@ -368,4 +421,4 @@ workspace/
 
 ---
 
-*Created: 2026-03-04 | Last updated: 2026-03-04*
+*Created: 2026-03-04 | Last updated: 2026-03-09*
