@@ -167,6 +167,13 @@ if tg_token:
     }
     config['plugins']['entries']['telegram'] = {'enabled': True}
 
+tavily_key = os.environ.get('TAVILY_API_KEY', '')
+if tavily_key:
+    config['tools'] = config.get('tools', {})
+    config['tools']['web'] = config['tools'].get('web', {})
+    config['tools']['web']['search'] = config['tools']['web'].get('search', {})
+    config['tools']['web']['search']['tavily'] = {'apiKey': tavily_key}
+
 with open('/root/.openclaw/openclaw.json', 'w') as f:
     json.dump(config, f, indent=2)
 

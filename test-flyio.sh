@@ -197,7 +197,8 @@ cmd_test() {
             "TIMEZONE": "UTC",
             "ANTHROPIC_API_KEY": "$ANTHROPIC_API_KEY",
             "MODEL": "claude-sonnet-4-20250514",
-            "TELEGRAM_BOT_TOKEN": "$TELEGRAM_BOT_TOKEN"
+            "TELEGRAM_BOT_TOKEN": "$TELEGRAM_BOT_TOKEN",
+            "TAVILY_API_KEY": "$TAVILY_API_KEY"
         },
         "mounts": $MOUNTS,
         "services": [

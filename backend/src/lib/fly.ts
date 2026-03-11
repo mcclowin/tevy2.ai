@@ -105,6 +105,7 @@ export async function createMachine(opts: {
         ...opts.envVars,
         ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY,
         MODEL: env.DEFAULT_MODEL,
+        ...(env.TAVILY_API_KEY && { TAVILY_API_KEY: env.TAVILY_API_KEY }),
       },
       mounts,
       services: [
