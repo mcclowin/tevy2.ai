@@ -157,6 +157,7 @@ instances.post("/", async (c) => {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Provisioning failed";
     console.error("Instance creation failed:", message);
+    console.error("Full error:", err);
     return c.json({ error: "Failed to provision agent", details: message }, 500);
   }
 });
