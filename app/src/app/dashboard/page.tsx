@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { createInstance } from "@/lib/api";
+import { createInstance, listInstances } from "@/lib/api";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
@@ -39,17 +39,40 @@ export default function DashboardPage() {
     config?: Record<string, unknown>;
   } | null>(null);
 
-  // Check for existing instance on mount
+  // Hydrate from API on mount — checks if user already has an instance
   useEffect(() => {
-    const savedId = localStorage.getItem("tevy_instance_id");
-    if (savedId) {
-      setInstanceData({
-        id: savedId,
-        name: localStorage.getItem("tevy_instance_name") || "",
-        webchatUrl: localStorage.getItem("tevy_webchat_url") || "",
-      });
-      setHasInstance(true);
+    async function hydrate() {
+      try {
+        const { instances } = await listInstances();
+        if (instances && instances.length > 0) {
+          const inst = instances[0] as Record<string, string>;
+          const data = {
+            id: inst.id,
+            name: inst.fly_machine_name || "",
+            webchatUrl: inst.webchatUrl || `https://${inst.fly_machine_name}.fly.dev`,
+            config: inst.config as unknown as Record<string, unknown>,
+          };
+          setInstanceData(data);
+          setHasInstance(true);
+          // Keep localStorage in sync
+          localStorage.setItem("tevy_instance_id", data.id);
+          localStorage.setItem("tevy_instance_name", data.name);
+          localStorage.setItem("tevy_webchat_url", data.webchatUrl);
+        }
+      } catch {
+        // Not logged in or API down — fall back to localStorage
+        const savedId = localStorage.getItem("tevy_instance_id");
+        if (savedId) {
+          setInstanceData({
+            id: savedId,
+            name: localStorage.getItem("tevy_instance_name") || "",
+            webchatUrl: localStorage.getItem("tevy_webchat_url") || "",
+          });
+          setHasInstance(true);
+        }
+      }
     }
+    hydrate();
   }, []);
 
   return (
