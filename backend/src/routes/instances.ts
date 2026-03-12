@@ -389,6 +389,56 @@ instances.post("/:id/update", async (c) => {
   }
 });
 
+// GET /api/instances/:id/boot-status — poll boot progress
+instances.get("/:id/boot-status", async (c) => {
+  const userId = c.get("userId") as string;
+  const instanceId = c.req.param("id");
+
+  const { data, error } = await supabase
+    .from("instances")
+    .select("*")
+    .eq("id", instanceId)
+    .eq("user_id", userId)
+    .single();
+
+  if (error || !data) return c.json({ error: "Instance not found" }, 404);
+
+  try {
+    const machine = await getMachine(data.fly_machine_id);
+    const flyState = machine.state; // created | starting | started | stopping | stopped | destroyed
+
+    // Early stages: use Fly machine state
+    if (flyState === "created" || flyState === "replacing") {
+      return c.json({ stage: "provisioning", progress: 15, message: "Provisioning infrastructure...", ready: false });
+    }
+    if (flyState === "starting") {
+      return c.json({ stage: "starting", progress: 30, message: "Starting secure container...", ready: false });
+    }
+    if (flyState === "stopping" || flyState === "stopped" || flyState === "destroyed") {
+      return c.json({ stage: "offline", progress: 0, message: `Machine is ${flyState}`, ready: false });
+    }
+
+    // Machine is "started" — probe the gateway
+    const webchatUrl = `https://${data.fly_machine_name}.fly.dev`;
+    try {
+      const probe = await fetch(`${webchatUrl}/__openclaw__/health`, {
+        signal: AbortSignal.timeout(5000),
+      });
+      if (probe.ok) {
+        return c.json({ stage: "ready", progress: 100, message: "Agent online!", ready: true, webchatUrl });
+      }
+      // Gateway responded but not healthy yet
+      return c.json({ stage: "booting", progress: 70, message: "Connecting channels...", ready: false });
+    } catch {
+      // Gateway not responding yet — still booting
+      return c.json({ stage: "booting", progress: 50, message: "Booting AI engine...", ready: false });
+    }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Status check failed";
+    return c.json({ stage: "error", progress: 0, message, ready: false });
+  }
+});
+
 // Helper: generate competitors markdown
 function generateCompetitorsMd(competitors: string): string {
   const list = competitors

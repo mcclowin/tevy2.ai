@@ -28,7 +28,7 @@ export const env = {
   ANTHROPIC_API_KEY: required("ANTHROPIC_API_KEY"),
   TAVILY_API_KEY: optional("TAVILY_API_KEY", ""),
   AGENT_IMAGE: optional("AGENT_IMAGE", "ghcr.io/mcclowin/tevy2.ai/agent:latest"),
-  DEFAULT_MODEL: optional("DEFAULT_MODEL", "claude-sonnet-4-20250514"),
+  DEFAULT_MODEL: optional("DEFAULT_MODEL", "anthropic/claude-sonnet-4-20250514"),
 
   // Frontend
   FRONTEND_URL: optional("FRONTEND_URL", "http://localhost:3000"),
