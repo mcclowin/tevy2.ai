@@ -162,10 +162,9 @@ export default function DashboardPage() {
   );
 }
 
-/* ─── ONBOARDING PANEL ─── */
+/* ─── ONBOARDING PANEL (single page) ─── */
 function OnboardingPanel({ onComplete }: { onComplete: (data: { id: string; name: string; webchatUrl: string }) => void }) {
-  const [step, setStep] = useState(1);
-  const [loading, setLoading] = useState(false);
+  const [deploying, setDeploying] = useState(false);
   const [bootStatus, setBootStatus] = useState<{
     stage: string;
     progress: number;
@@ -192,16 +191,12 @@ function OnboardingPanel({ onComplete }: { onComplete: (data: { id: string; name
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  // Cleanup polling on unmount
   useEffect(() => {
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, []);
 
   const pollBootStatus = useCallback((instanceId: string) => {
     const token = localStorage.getItem("tevy_session_token") || "";
-
     pollRef.current = setInterval(async () => {
       try {
         const res = await fetch(`${API_URL}/api/instances/${instanceId}/boot-status`, {
@@ -210,7 +205,6 @@ function OnboardingPanel({ onComplete }: { onComplete: (data: { id: string; name
         if (!res.ok) return;
         const status = await res.json();
         setBootStatus(status);
-
         if (status.ready) {
           if (pollRef.current) clearInterval(pollRef.current);
           localStorage.setItem("tevy_webchat_url", status.webchatUrl || "");
@@ -222,26 +216,21 @@ function OnboardingPanel({ onComplete }: { onComplete: (data: { id: string; name
             });
           }, 1500);
         }
-
         if (status.stage === "error" || status.stage === "offline") {
           if (pollRef.current) clearInterval(pollRef.current);
           setError(status.message);
-          setLoading(false);
+          setDeploying(false);
         }
-      } catch {
-        // Network error, keep polling
-      }
+      } catch { /* keep polling */ }
     }, 3000);
   }, [onComplete]);
 
   const handleDeploy = async () => {
-    setLoading(true);
+    setDeploying(true);
     setError(null);
-    setStep(3);
     setBootStatus({ stage: "creating", progress: 5, message: "Creating your agent...", ready: false });
 
     if (process.env.NEXT_PUBLIC_MOCK_DEPLOY === "true") {
-      // Mock mode
       const stages = [
         { stage: "provisioning", progress: 15, message: "Provisioning infrastructure..." },
         { stage: "starting", progress: 30, message: "Starting secure container..." },
@@ -254,7 +243,7 @@ function OnboardingPanel({ onComplete }: { onComplete: (data: { id: string; name
         setBootStatus({ ...s, ready: s.stage === "ready" });
       }
       setTimeout(() => onComplete({ id: "mock", name: "mock", webchatUrl: "" }), 1500);
-      setLoading(false);
+      setDeploying(false);
       return;
     }
 
@@ -272,276 +261,214 @@ function OnboardingPanel({ onComplete }: { onComplete: (data: { id: string; name
         chatChannel: form.addTelegram ? "telegram" : "webchat",
         telegramBotToken: form.addTelegram ? form.telegramBotToken : undefined,
       });
-
       localStorage.setItem("tevy_instance_id", result.instance.id);
       localStorage.setItem("tevy_instance_name", result.instance.name);
       localStorage.setItem("tevy_webchat_url", result.instance.webchatUrl);
-
       setBootStatus({ stage: "provisioning", progress: 15, message: "Provisioning infrastructure...", ready: false });
-
-      // Start polling boot status
       pollBootStatus(result.instance.id);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Deploy failed";
       setError(msg);
-      setLoading(false);
+      setDeploying(false);
     }
   };
 
+  const canDeploy = form.businessName && (!form.addTelegram || form.telegramBotToken);
+
   return (
     <div className="p-8 max-w-2xl mx-auto">
-      {/* Progress */}
-      <div className="flex items-center gap-3 mb-8 text-sm">
-        <span className={step >= 1 ? "text-white font-semibold" : "text-[var(--muted)]"}>① Business</span>
-        <span className="text-[var(--border)]">—</span>
-        <span className={step >= 2 ? "text-white font-semibold" : "text-[var(--muted)]"}>② Channel</span>
-        <span className="text-[var(--border)]">—</span>
-        <span className={step >= 3 ? "text-white font-semibold" : "text-[var(--muted)]"}>③ Deploy</span>
-      </div>
+      <h1 className="text-2xl font-bold mb-2">Set up your marketing agent</h1>
+      <p className="text-sm text-[var(--muted)] mb-8">
+        Fill in your details and deploy. Takes about 60 seconds.
+      </p>
 
-      {/* STEP 1: Business Info (simplified — just name, website, socials) */}
-      {step === 1 && (
-        <div>
-          <h1 className="text-2xl font-bold mb-2">Tell Tevy about your business</h1>
-          <p className="text-sm text-[var(--muted)] mb-6">
-            Just the basics. You can add more details later in the Brand tab.
-          </p>
-
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs text-[var(--muted)] mb-1 block">Your name</label>
-                <input
-                  className="input-field"
-                  placeholder="Jane Smith"
-                  value={form.ownerName}
-                  onChange={(e) => update("ownerName", e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="text-xs text-[var(--muted)] mb-1 block">Business name *</label>
-                <input
-                  className="input-field"
-                  placeholder="Sunrise Coffee Co"
-                  value={form.businessName}
-                  onChange={(e) => update("businessName", e.target.value)}
-                  autoFocus
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="text-xs text-[var(--muted)] mb-1 block">Website URL</label>
-              <input
-                className="input-field"
-                placeholder="https://sunrisecoffee.com"
-                value={form.websiteUrl}
-                onChange={(e) => update("websiteUrl", e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label className="text-xs text-[var(--muted)] mb-1.5 block">Social accounts <span className="text-xs">(optional)</span></label>
-              <div className="space-y-2">
-                {[
-                  { key: "instagram" as const, icon: "📸", placeholder: "@handle or URL" },
-                  { key: "tiktok" as const, icon: "🎵", placeholder: "@handle or URL" },
-                  { key: "linkedin" as const, icon: "💼", placeholder: "Company page URL" },
-                  { key: "twitter" as const, icon: "𝕏", placeholder: "@handle" },
-                  { key: "facebook" as const, icon: "📘", placeholder: "Page URL" },
-                ].map((s) => (
-                  <div key={s.key} className="flex items-center gap-2">
-                    <span className="w-6 text-center text-sm">{s.icon}</span>
-                    <input
-                      className="input-field !py-2 text-sm"
-                      placeholder={s.placeholder}
-                      value={form[s.key]}
-                      onChange={(e) => update(s.key, e.target.value)}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
+      {/* Business Info */}
+      <div className="space-y-4 mb-8">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs text-[var(--muted)] mb-1 block">Your name</label>
+            <input
+              className="input-field"
+              placeholder="Jane Smith"
+              value={form.ownerName}
+              onChange={(e) => update("ownerName", e.target.value)}
+              disabled={deploying}
+            />
           </div>
-
-          <button
-            onClick={() => setStep(2)}
-            className="btn-primary w-full mt-6"
-            disabled={!form.businessName}
-          >
-            Continue →
-          </button>
+          <div>
+            <label className="text-xs text-[var(--muted)] mb-1 block">Business name *</label>
+            <input
+              className="input-field"
+              placeholder="Sunrise Coffee Co"
+              value={form.businessName}
+              onChange={(e) => update("businessName", e.target.value)}
+              disabled={deploying}
+              autoFocus
+            />
+          </div>
         </div>
-      )}
 
-      {/* STEP 2: Channel */}
-      {step === 2 && (
         <div>
-          <h1 className="text-2xl font-bold mb-2">How do you want to chat with Tevy?</h1>
-          <p className="text-sm text-[var(--muted)] mb-6">
-            Choose your preferred channel. You can add more later.
-          </p>
+          <label className="text-xs text-[var(--muted)] mb-1 block">Website URL</label>
+          <input
+            className="input-field"
+            placeholder="https://sunrisecoffee.com"
+            value={form.websiteUrl}
+            onChange={(e) => update("websiteUrl", e.target.value)}
+            disabled={deploying}
+          />
+        </div>
 
-          {/* Telegram */}
-          <button
-            onClick={() => update("addTelegram", !form.addTelegram)}
-            className={`w-full glass rounded-xl p-4 mb-3 text-left transition-all ${
-              form.addTelegram ? "border border-[var(--accent)] glow" : "border border-transparent hover:border-[var(--border)]"
-            }`}
-          >
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-lg bg-[#2AABEE] flex items-center justify-center">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
-                  <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.96 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.479.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
-                </svg>
-              </div>
-              <div className="flex-1">
-                <div className="font-semibold text-sm flex items-center gap-2">
-                  Telegram
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--surface-light)] text-[var(--accent-light)]">Recommended</span>
-                </div>
-                <p className="text-xs text-[var(--muted)]">Chat with Tevy from your phone, anytime</p>
-              </div>
-              <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                form.addTelegram ? "border-[var(--accent)] bg-[var(--accent)] text-white" : "border-[var(--border)]"
-              }`}>
-                {form.addTelegram && <span className="text-xs">✓</span>}
-              </div>
-            </div>
-          </button>
-
-          {/* Telegram bot token input */}
-          {form.addTelegram && (
-            <div className="glass rounded-xl p-4 mb-3 ml-14">
-              <label className="text-xs text-[var(--muted)] mb-1.5 block">
-                Bot Token <span className="text-[var(--muted)]">(from @BotFather)</span>
-              </label>
-              <input
-                className="input-field text-sm font-mono"
-                placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
-                value={form.telegramBotToken}
-                onChange={(e) => update("telegramBotToken", e.target.value)}
-                autoFocus
-              />
-              <p className="text-xs text-[var(--muted)] mt-1.5">
-                <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer" className="text-[var(--accent-light)] hover:underline">Create a bot</a> — takes 30 seconds
-              </p>
-            </div>
-          )}
-
-          {/* Coming soon */}
-          <div className="space-y-2 mt-4 mb-6">
+        <div>
+          <label className="text-xs text-[var(--muted)] mb-1.5 block">Social accounts <span className="text-xs">(optional)</span></label>
+          <div className="space-y-2">
             {[
-              { icon: "📱", name: "WhatsApp", bg: "#25D366" },
-              { icon: "🎮", name: "Discord", bg: "#5865F2" },
-              { icon: "💬", name: "Slack", bg: "#4A154B" },
-            ].map((ch) => (
-              <div key={ch.name} className="glass rounded-xl p-3 opacity-40">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-lg flex items-center justify-center text-xl" style={{ background: ch.bg }}>
-                    {ch.icon}
-                  </div>
-                  <div className="flex-1">
-                    <span className="text-sm font-medium">{ch.name}</span>
-                    <span className="text-xs text-[var(--muted)] ml-2">Coming soon</span>
-                  </div>
-                </div>
+              { key: "instagram" as const, icon: "📸", placeholder: "@handle or URL" },
+              { key: "tiktok" as const, icon: "🎵", placeholder: "@handle or URL" },
+              { key: "linkedin" as const, icon: "💼", placeholder: "Company page URL" },
+              { key: "twitter" as const, icon: "𝕏", placeholder: "@handle" },
+              { key: "facebook" as const, icon: "📘", placeholder: "Page URL" },
+            ].map((s) => (
+              <div key={s.key} className="flex items-center gap-2">
+                <span className="w-6 text-center text-sm">{s.icon}</span>
+                <input
+                  className="input-field !py-2 text-sm"
+                  placeholder={s.placeholder}
+                  value={form[s.key]}
+                  onChange={(e) => update(s.key, e.target.value)}
+                  disabled={deploying}
+                />
               </div>
             ))}
           </div>
-
-          <div className="flex gap-3">
-            <button onClick={() => setStep(1)} className="btn-secondary flex-1">← Back</button>
-            <button
-              onClick={handleDeploy}
-              className="btn-primary flex-1"
-              disabled={form.addTelegram && !form.telegramBotToken}
-            >
-              🚀 Deploy Agent
-            </button>
-          </div>
         </div>
-      )}
+      </div>
 
-      {/* STEP 3: Deploy with real status bar */}
-      {step === 3 && (
-        <div>
-          <h1 className="text-2xl font-bold mb-2 text-center">Deploying your agent</h1>
-          <p className="text-sm text-[var(--muted)] mb-8 text-center">
-            This takes about 60 seconds. Hang tight!
-          </p>
+      {/* Chat Channel */}
+      <div className="mb-8">
+        <label className="text-xs text-[var(--muted)] mb-2 block uppercase tracking-wide font-semibold">Chat channel</label>
 
-          {/* Progress bar */}
-          <div className="glass rounded-xl p-6 mb-6">
-            <div className="flex items-center gap-3 mb-4">
-              {bootStatus?.ready ? (
-                <div className="w-3 h-3 rounded-full bg-green-500"></div>
-              ) : error ? (
-                <div className="w-3 h-3 rounded-full bg-red-500"></div>
-              ) : (
-                <div className="w-3 h-3 rounded-full bg-[var(--accent)] animate-pulse"></div>
-              )}
-              <span className="text-sm font-semibold">
-                {error ? "Deploy failed" : bootStatus?.message || "Initializing..."}
+        <button
+          onClick={() => !deploying && update("addTelegram", !form.addTelegram)}
+          className={`w-full glass rounded-xl p-4 mb-3 text-left transition-all ${
+            form.addTelegram ? "border border-[var(--accent)] glow" : "border border-transparent hover:border-[var(--border)]"
+          } ${deploying ? "opacity-60 cursor-not-allowed" : ""}`}
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-lg bg-[#2AABEE] flex items-center justify-center">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+                <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.96 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.479.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+              </svg>
+            </div>
+            <div className="flex-1">
+              <div className="font-semibold text-sm flex items-center gap-2">
+                Telegram
+                <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--surface-light)] text-[var(--accent-light)]">Recommended</span>
+              </div>
+              <p className="text-xs text-[var(--muted)]">Chat with Tevy from your phone, anytime</p>
+            </div>
+            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+              form.addTelegram ? "border-[var(--accent)] bg-[var(--accent)] text-white" : "border-[var(--border)]"
+            }`}>
+              {form.addTelegram && <span className="text-xs">✓</span>}
+            </div>
+          </div>
+        </button>
+
+        {form.addTelegram && (
+          <div className="glass rounded-xl p-4 mb-3 ml-14">
+            <label className="text-xs text-[var(--muted)] mb-1.5 block">
+              Bot Token <span className="text-[var(--muted)]">(from @BotFather)</span>
+            </label>
+            <input
+              className="input-field text-sm font-mono"
+              placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
+              value={form.telegramBotToken}
+              onChange={(e) => update("telegramBotToken", e.target.value)}
+              disabled={deploying}
+            />
+            <p className="text-xs text-[var(--muted)] mt-1.5">
+              <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer" className="text-[var(--accent-light)] hover:underline">Create a bot</a> — takes 30 seconds
+            </p>
+          </div>
+        )}
+
+        <div className="flex gap-2">
+          {[
+            { icon: "📱", name: "WhatsApp" },
+            { icon: "🎮", name: "Discord" },
+            { icon: "💬", name: "Slack" },
+          ].map((ch) => (
+            <div key={ch.name} className="glass rounded-lg px-3 py-2 opacity-40 text-xs flex items-center gap-1.5">
+              <span>{ch.icon}</span>
+              <span className="text-[var(--muted)]">{ch.name} — soon</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Deploy button OR status bar */}
+      {!deploying ? (
+        <button
+          onClick={handleDeploy}
+          className="btn-primary w-full text-lg py-3"
+          disabled={!canDeploy}
+        >
+          🚀 Deploy Agent
+        </button>
+      ) : (
+        <div className="glass rounded-xl p-6">
+          <div className="flex items-center gap-3 mb-4">
+            {bootStatus?.ready ? (
+              <div className="w-3 h-3 rounded-full bg-green-500"></div>
+            ) : error ? (
+              <div className="w-3 h-3 rounded-full bg-red-500"></div>
+            ) : (
+              <div className="w-3 h-3 rounded-full bg-[var(--accent)] animate-pulse"></div>
+            )}
+            <span className="text-sm font-semibold">
+              {error ? "Deploy failed" : bootStatus?.message || "Initializing..."}
+            </span>
+          </div>
+
+          <div className="w-full h-2 bg-[var(--surface-light)] rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-1000 ease-out"
+              style={{
+                width: `${bootStatus?.progress || 0}%`,
+                background: error ? "#ef4444" : bootStatus?.ready ? "#22c55e" : "linear-gradient(90deg, var(--accent), var(--accent-light))",
+              }}
+            ></div>
+          </div>
+
+          <div className="flex justify-between mt-4 text-xs text-[var(--muted)]">
+            {[
+              { label: "Provision", threshold: 15 },
+              { label: "Container", threshold: 30 },
+              { label: "AI Engine", threshold: 50 },
+              { label: "Channels", threshold: 70 },
+              { label: "Ready", threshold: 100 },
+            ].map((s) => (
+              <span key={s.label} className={(bootStatus?.progress || 0) >= s.threshold ? "text-white font-medium" : ""}>
+                {(bootStatus?.progress || 0) >= s.threshold ? "✓ " : ""}{s.label}
               </span>
-            </div>
-
-            {/* Bar */}
-            <div className="w-full h-2 bg-[var(--surface-light)] rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all duration-1000 ease-out"
-                style={{
-                  width: `${bootStatus?.progress || 0}%`,
-                  background: error
-                    ? "#ef4444"
-                    : bootStatus?.ready
-                    ? "#22c55e"
-                    : "linear-gradient(90deg, var(--accent), var(--accent-light))",
-                }}
-              ></div>
-            </div>
-
-            {/* Stage indicators */}
-            <div className="flex justify-between mt-4 text-xs text-[var(--muted)]">
-              {[
-                { label: "Provision", threshold: 15 },
-                { label: "Container", threshold: 30 },
-                { label: "AI Engine", threshold: 50 },
-                { label: "Channels", threshold: 70 },
-                { label: "Ready", threshold: 100 },
-              ].map((s) => (
-                <span
-                  key={s.label}
-                  className={
-                    (bootStatus?.progress || 0) >= s.threshold
-                      ? "text-white font-medium"
-                      : ""
-                  }
-                >
-                  {(bootStatus?.progress || 0) >= s.threshold ? "✓ " : ""}
-                  {s.label}
-                </span>
-              ))}
-            </div>
+            ))}
           </div>
 
           {error && (
-            <div className="glass rounded-xl p-4 border border-red-500/30 mb-4">
+            <div className="mt-4 p-3 rounded-lg border border-red-500/30">
               <p className="text-sm text-red-400">{error}</p>
-              <button
-                onClick={() => { setError(null); setStep(2); }}
-                className="btn-secondary mt-3 text-sm"
-              >
+              <button onClick={() => { setError(null); setDeploying(false); }} className="btn-secondary mt-2 text-sm">
                 ← Try again
               </button>
             </div>
           )}
 
           {bootStatus?.ready && (
-            <div className="glass rounded-xl p-6 text-center glow">
-              <div className="text-4xl mb-3">🎉</div>
-              <h2 className="text-xl font-bold mb-2">Tevy is live!</h2>
-              <p className="text-sm text-[var(--muted)]">Loading your dashboard...</p>
+            <div className="mt-4 text-center">
+              <div className="text-3xl mb-2">🎉</div>
+              <h2 className="text-lg font-bold">Tevy is live!</h2>
+              <p className="text-sm text-[var(--muted)]">Loading dashboard...</p>
             </div>
           )}
         </div>
