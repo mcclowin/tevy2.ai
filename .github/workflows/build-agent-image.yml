@@ -15,7 +15,7 @@ on:
 
   # Rebuild on agent-image changes
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - 'agent-image/**'
 
