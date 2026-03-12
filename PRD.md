@@ -469,7 +469,61 @@ CREATE TABLE instance_archives (
 
 ---
 
-## 17. X.com (Twitter) Integration
+## 17. Security Hardening (Production)
+
+### Current State (MVP)
+- Agent gateway exposed publicly at `https://{name}.fly.dev`
+- Auth: 32-char random hex token over HTTPS (standard OpenClaw auth)
+- Token stored in Supabase `instances.gateway_token` column
+- Acceptable for MVP — same security model as any OpenClaw deployment
+
+### Production Hardening
+
+**Phase 1: Fly Private Networking (deploy backend to Fly)**
+- Remove public `services` mapping from machine config (no more fly.dev URL for agents)
+- Backend communicates with agents over Fly internal network (`{name}.internal:18789`)
+- Gateway token still used for auth, but zero public attack surface
+- Only the backend can reach agents — users interact via dashboard or Telegram only
+
+**Phase 2: Token Rotation**
+- Gateway tokens rotated on every machine restart (backend updates Supabase)
+- Stale tokens auto-invalidated
+- Optional: short-lived tokens via HMAC (backend signs a time-limited token per request)
+
+**Phase 3: Tailscale (if backend moves off Fly)**
+- Each Fly machine joins Tailnet via sidecar
+- Backend connects over Tailscale mesh — encrypted, identity-verified, no public exposure
+- ACL policies restrict which machines can talk to each other
+
+**Phase 4: Per-User Encryption**
+- Agent memory files encrypted at rest with user-specific key
+- Key derived from user auth, never stored alongside data
+- Even if Fly volume is compromised, data is unreadable
+
+### Network Architecture (Production Target)
+
+```
+User Browser ──HTTPS──▶ Dashboard (Fly)
+                              │
+                         Fly Private Network
+                              │
+                              ▼
+                        Backend (Fly)
+                         │         │
+                    ┌────┘         └────┐
+                    ▼                   ▼
+              Agent Machine 1     Agent Machine 2
+              (no public IP)      (no public IP)
+```
+
+### Telegram Channel Security
+- Already secure: Telegram bot token is per-instance, stored as Fly secret
+- `dmPolicy: "allowlist"` restricts who can message each bot (TODO: implement per-user lockdown)
+- Bot token never exposed to the user's browser
+
+---
+
+## 18. X.com (Twitter) Integration
 
 ### Goal
 Tevy can draft, schedule, and post to X.com on behalf of the user's business.
