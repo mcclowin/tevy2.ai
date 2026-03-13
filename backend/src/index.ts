@@ -46,5 +46,10 @@ app.onError((err, c) => {
 
 // Start
 console.log(`🚀 tevy2 backend starting on port ${env.PORT}`);
-serve({ fetch: app.fetch, port: env.PORT });
+const server = serve({ fetch: app.fetch, port: env.PORT });
 console.log(`✅ tevy2 backend running at http://localhost:${env.PORT}`);
+
+// Keepalive heartbeat — detect silent crashes
+setInterval(() => {
+  console.log(`💓 heartbeat — ${new Date().toISOString()}`);
+}, 30000);
