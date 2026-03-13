@@ -46,12 +46,19 @@ export default function DashboardPage() {
       try {
         const { instances } = await listInstances();
         if (instances && instances.length > 0) {
-          const inst = instances[0] as Record<string, string>;
+          const inst = instances[0] as Record<string, unknown>;
+          const instConfig = (inst.config || {}) as Record<string, unknown>;
+          // Merge top-level fields into config so Brand tab can read them
+          const mergedConfig = {
+            ...instConfig,
+            businessName: instConfig.businessName || inst.business_name || "",
+            websiteUrl: instConfig.websiteUrl || inst.website_url || "",
+          };
           const data = {
-            id: inst.id,
-            name: inst.fly_machine_name || "",
-            webchatUrl: inst.webchatUrl || `https://${inst.fly_machine_name}.fly.dev`,
-            config: inst.config as unknown as Record<string, unknown>,
+            id: inst.id as string,
+            name: (inst.fly_machine_name as string) || "",
+            webchatUrl: (inst.webchatUrl as string) || `https://${inst.fly_machine_name}.fly.dev`,
+            config: mergedConfig,
           };
           setInstanceData(data);
           setHasInstance(true);
@@ -611,30 +618,61 @@ function HomeTab({ instanceData }: { instanceData: { id: string; name: string; w
 }
 
 /* ─── BRAND TAB (redesigned with inputs + analysis) ─── */
-function BrandTab({ instanceData }: { instanceData: { id: string; name: string; webchatUrl: string } | null }) {
-  // Load saved config from localStorage (set during onboarding)
+function BrandTab({ instanceData }: { instanceData: { id: string; name: string; webchatUrl: string; config?: Record<string, unknown> } | null }) {
   const [brandData, setBrandData] = useState({
     businessName: "",
     websiteUrl: "",
-    instagram: "",
-    tiktok: "",
-    linkedin: "",
-    twitter: "",
-    facebook: "",
     competitors: "",
     brandVoice: "",
     targetAudience: "",
   });
+  const [socials, setSocials] = useState<Array<{ platform: string; handle: string }>>([]);
   const [saved, setSaved] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
 
+  // Hydrate from instance config (passed from API)
   useEffect(() => {
-    // TODO: Load from backend GET /api/instances/:id
-    // For now, hydrate from localStorage if available
-    const name = localStorage.getItem("tevy_business_name");
-    if (name) {
-      setBrandData((prev) => ({ ...prev, businessName: name }));
+    if (instanceData?.config) {
+      const cfg = instanceData.config;
+      const cfgSocials = (cfg.socials || {}) as Record<string, string>;
+      setBrandData({
+        businessName: (cfg.businessName as string) || localStorage.getItem("tevy_business_name") || "",
+        websiteUrl: (cfg.websiteUrl as string) || "",
+        competitors: (cfg.competitors as string) || "",
+        brandVoice: (cfg.brandVoice as string) || "",
+        targetAudience: (cfg.targetAudience as string) || "",
+      });
+      // Convert socials object to array
+      const socialList: Array<{ platform: string; handle: string }> = [];
+      const platformMap: Record<string, string> = {
+        instagram: "Instagram",
+        tiktok: "TikTok",
+        linkedin: "LinkedIn",
+        twitter: "X / Twitter",
+        facebook: "Facebook",
+      };
+      Object.entries(cfgSocials).forEach(([key, val]) => {
+        if (val) socialList.push({ platform: platformMap[key] || key, handle: val });
+      });
+      if (socialList.length > 0) setSocials(socialList);
+    } else {
+      // Fallback: try to get business name from localStorage
+      const name = localStorage.getItem("tevy_business_name");
+      if (name) setBrandData((prev) => ({ ...prev, businessName: name }));
     }
-  }, []);
+  }, [instanceData]);
+
+  const addSocial = () => {
+    setSocials((prev) => [...prev, { platform: "", handle: "" }]);
+  };
+
+  const updateSocial = (index: number, field: "platform" | "handle", value: string) => {
+    setSocials((prev) => prev.map((s, i) => i === index ? { ...s, [field]: value } : s));
+  };
+
+  const removeSocial = (index: number) => {
+    setSocials((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const handleSave = async () => {
     // TODO: Save to backend PUT /api/instances/:id/config
@@ -642,6 +680,15 @@ function BrandTab({ instanceData }: { instanceData: { id: string; name: string; 
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
+
+  const handleAnalyze = async () => {
+    setAnalyzing(true);
+    // TODO: Send message to agent via API to trigger brand analysis
+    // For now just show a loading state
+    setTimeout(() => setAnalyzing(false), 3000);
+  };
+
+  const platformOptions = ["Instagram", "TikTok", "LinkedIn", "X / Twitter", "Facebook", "YouTube", "Pinterest", "Threads"];
 
   return (
     <div className="p-8 max-w-4xl">
@@ -675,27 +722,43 @@ function BrandTab({ instanceData }: { instanceData: { id: string; name: string; 
             </div>
           </div>
 
+          {/* Social accounts — add/remove style */}
           <div>
             <label className="text-xs text-[var(--muted)] mb-1.5 block">Social accounts</label>
             <div className="space-y-2">
-              {[
-                { key: "instagram", icon: "📸", placeholder: "@handle or URL" },
-                { key: "tiktok", icon: "🎵", placeholder: "@handle or URL" },
-                { key: "linkedin", icon: "💼", placeholder: "Company page URL" },
-                { key: "twitter", icon: "𝕏", placeholder: "@handle" },
-                { key: "facebook", icon: "📘", placeholder: "Page URL" },
-              ].map((s) => (
-                <div key={s.key} className="flex items-center gap-2">
-                  <span className="w-6 text-center text-sm">{s.icon}</span>
+              {socials.map((social, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <select
+                    className="input-field !py-2 text-sm w-40"
+                    value={social.platform}
+                    onChange={(e) => updateSocial(i, "platform", e.target.value)}
+                  >
+                    <option value="">Platform...</option>
+                    {platformOptions.map((p) => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
+                  </select>
                   <input
-                    className="input-field !py-2 text-sm"
-                    placeholder={s.placeholder}
-                    value={(brandData as Record<string, string>)[s.key] || ""}
-                    onChange={(e) => setBrandData((prev) => ({ ...prev, [s.key]: e.target.value }))}
+                    className="input-field !py-2 text-sm flex-1"
+                    placeholder="@handle or URL"
+                    value={social.handle}
+                    onChange={(e) => updateSocial(i, "handle", e.target.value)}
                   />
+                  <button
+                    onClick={() => removeSocial(i)}
+                    className="text-[var(--muted)] hover:text-red-400 text-sm px-2"
+                  >
+                    ✕
+                  </button>
                 </div>
               ))}
             </div>
+            <button
+              onClick={addSocial}
+              className="mt-2 px-3 py-1.5 rounded-lg text-xs bg-[var(--surface-light)] text-[var(--muted)] hover:text-white transition-colors"
+            >
+              + Add account
+            </button>
           </div>
 
           <div>
@@ -753,16 +816,37 @@ function BrandTab({ instanceData }: { instanceData: { id: string; name: string; 
 
       {/* Brand Analysis Section */}
       <div className="glass rounded-xl p-6">
-        <h3 className="font-semibold mb-4">🎯 Brand Analysis</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold">🎯 Brand Analysis</h3>
+          <button
+            onClick={handleAnalyze}
+            disabled={analyzing || !brandData.websiteUrl}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              analyzing
+                ? "bg-[var(--surface-light)] text-[var(--muted)] cursor-wait"
+                : "bg-[var(--accent)] text-white hover:opacity-90"
+            }`}
+          >
+            {analyzing ? (
+              <span className="flex items-center gap-2">
+                <span className="animate-spin">⏳</span> Analyzing...
+              </span>
+            ) : (
+              "🔍 Run analysis"
+            )}
+          </button>
+        </div>
         <div className="text-center py-8">
           <div className="text-3xl mb-3">🔍</div>
           <h3 className="text-lg font-semibold mb-2">No analysis yet</h3>
-          <p className="text-sm text-[var(--muted)] mb-4">
-            Save your brand details above, then ask Tevy to analyze your brand.
-            The analysis will appear here.
+          <p className="text-sm text-[var(--muted)] mb-2">
+            Click &quot;Run analysis&quot; to have Tevy analyze your website and social profiles.
           </p>
           <p className="text-xs text-[var(--muted)]">
-            Try telling Tevy: &quot;Analyze my website and create a brand profile&quot;
+            {brandData.websiteUrl
+              ? `Will analyze: ${brandData.websiteUrl}`
+              : "Add your website URL above to enable analysis"
+            }
           </p>
         </div>
       </div>
