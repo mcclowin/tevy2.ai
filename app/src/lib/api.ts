@@ -69,3 +69,16 @@ export function stopInstance(id: string) {
 export function deleteInstance(id: string) {
   return api(`/api/instances/${id}`, { method: "DELETE" });
 }
+
+export function triggerTask(id: string, task: string) {
+  return api<{ success: boolean; message: string; telegramMessage?: string }>(
+    `/api/instances/${id}/trigger`,
+    { method: "POST", body: { task } }
+  );
+}
+
+export function readAgentFile(id: string, filePath: string) {
+  return api<{ path: string; content: string }>(
+    `/api/instances/${id}/files/${filePath}`
+  );
+}

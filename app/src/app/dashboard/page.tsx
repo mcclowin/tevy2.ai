@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { createInstance, listInstances } from "@/lib/api";
+import { createInstance, listInstances, triggerTask, readAgentFile } from "@/lib/api";
 import { signOut } from "@/lib/auth";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -629,6 +629,17 @@ function BrandTab({ instanceData }: { instanceData: { id: string; name: string; 
   const [socials, setSocials] = useState<Array<{ platform: string; handle: string }>>([]);
   const [saved, setSaved] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
+  const [analysisContent, setAnalysisContent] = useState<string | null>(null);
+  const [analysisTriggerMsg, setAnalysisTriggerMsg] = useState<string | null>(null);
+
+  // Try to load existing brand analysis on mount
+  useEffect(() => {
+    if (instanceData?.id) {
+      readAgentFile(instanceData.id, "memory/brand-profile.md")
+        .then((res) => { if (res.content) setAnalysisContent(res.content); })
+        .catch(() => { /* no file yet */ });
+    }
+  }, [instanceData?.id]);
 
   // Hydrate from instance config (passed from API)
   useEffect(() => {
@@ -682,10 +693,35 @@ function BrandTab({ instanceData }: { instanceData: { id: string; name: string; 
   };
 
   const handleAnalyze = async () => {
+    if (!instanceData?.id) return;
     setAnalyzing(true);
-    // TODO: Send message to agent via API to trigger brand analysis
-    // For now just show a loading state
-    setTimeout(() => setAnalyzing(false), 3000);
+    setAnalysisTriggerMsg(null);
+    try {
+      const task = `Analyze the website at ${brandData.websiteUrl} and create a comprehensive brand profile. Save the results to memory/brand-profile.md. Include: brand vibe, target audience, value proposition, tone of voice, visual style, and key messaging.`;
+      const res = await triggerTask(instanceData.id, task);
+      if (res.telegramMessage) {
+        setAnalysisTriggerMsg(res.telegramMessage);
+      }
+      // Poll for the file to appear (check every 10s for up to 2 min)
+      let attempts = 0;
+      const pollFile = setInterval(async () => {
+        attempts++;
+        try {
+          const file = await readAgentFile(instanceData.id, "memory/brand-profile.md");
+          if (file.content) {
+            setAnalysisContent(file.content);
+            setAnalyzing(false);
+            clearInterval(pollFile);
+          }
+        } catch { /* not ready yet */ }
+        if (attempts > 12) {
+          setAnalyzing(false);
+          clearInterval(pollFile);
+        }
+      }, 10000);
+    } catch {
+      setAnalyzing(false);
+    }
   };
 
   const platformOptions = ["Instagram", "TikTok", "LinkedIn", "X / Twitter", "Facebook", "YouTube", "Pinterest", "Threads"];
@@ -836,19 +872,41 @@ function BrandTab({ instanceData }: { instanceData: { id: string; name: string; 
             )}
           </button>
         </div>
-        <div className="text-center py-8">
-          <div className="text-3xl mb-3">🔍</div>
-          <h3 className="text-lg font-semibold mb-2">No analysis yet</h3>
-          <p className="text-sm text-[var(--muted)] mb-2">
-            Click &quot;Run analysis&quot; to have Tevy analyze your website and social profiles.
-          </p>
-          <p className="text-xs text-[var(--muted)]">
-            {brandData.websiteUrl
-              ? `Will analyze: ${brandData.websiteUrl}`
-              : "Add your website URL above to enable analysis"
-            }
-          </p>
-        </div>
+        {analysisContent ? (
+          <div className="prose prose-invert prose-sm max-w-none">
+            <pre className="whitespace-pre-wrap text-sm text-[var(--muted)] bg-[var(--surface-light)] rounded-lg p-4 overflow-auto">
+              {analysisContent}
+            </pre>
+          </div>
+        ) : analyzing ? (
+          <div className="text-center py-8">
+            <div className="text-3xl mb-3 animate-pulse">🔍</div>
+            <h3 className="text-lg font-semibold mb-2">Analyzing your brand...</h3>
+            <p className="text-sm text-[var(--muted)] mb-2">
+              This can take 1-2 minutes. Tevy is scraping your website and analyzing your brand.
+            </p>
+            {analysisTriggerMsg && (
+              <div className="mt-4 glass rounded-lg p-4 text-left max-w-md mx-auto">
+                <p className="text-xs text-[var(--muted)] mb-1">Or send this to your Telegram bot:</p>
+                <p className="text-sm font-mono">{analysisTriggerMsg}</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <div className="text-3xl mb-3">🔍</div>
+            <h3 className="text-lg font-semibold mb-2">No analysis yet</h3>
+            <p className="text-sm text-[var(--muted)] mb-2">
+              Click &quot;Run analysis&quot; to have Tevy analyze your website and social profiles.
+            </p>
+            <p className="text-xs text-[var(--muted)]">
+              {brandData.websiteUrl
+                ? `Will analyze: ${brandData.websiteUrl}`
+                : "Add your website URL above to enable analysis"
+              }
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1012,44 +1070,140 @@ function AnalyticsTab() {
 
 /* ─── RESEARCH TAB ─── */
 function ResearchTab() {
+  // This tab will be connected to instanceData in a future pass
+  // For now it reads from the first instance in localStorage
+  const [content, setContent] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const instanceId = localStorage.getItem("tevy_instance_id") || "";
+
+  useEffect(() => {
+    if (!instanceId) return;
+    // Try to load latest research file
+    readAgentFile(instanceId, "memory/research/latest.md")
+      .then((res) => { if (res.content) setContent(res.content); })
+      .catch(() => { /* no file yet */ });
+  }, [instanceId]);
+
+  const handleTrigger = async () => {
+    if (!instanceId) return;
+    setLoading(true);
+    try {
+      await triggerTask(instanceId, "Research my competitors and market trends. Analyze what they're posting on social media, identify industry trends, and write a research digest. Save to memory/research/latest.md");
+    } catch { /* */ }
+    // Poll for file
+    let attempts = 0;
+    const poll = setInterval(async () => {
+      attempts++;
+      try {
+        const file = await readAgentFile(instanceId, "memory/research/latest.md");
+        if (file.content) { setContent(file.content); setLoading(false); clearInterval(poll); }
+      } catch { /* */ }
+      if (attempts > 12) { setLoading(false); clearInterval(poll); }
+    }, 10000);
+  };
+
   return (
     <div className="p-8 max-w-4xl">
-      <h1 className="text-2xl font-bold mb-1">Market Research</h1>
-      <p className="text-[var(--muted)] mb-6">Competitor intel and market trends</p>
-
-      <div className="glass rounded-xl p-6 text-center">
-        <div className="text-4xl mb-3">🔍</div>
-        <h2 className="text-lg font-semibold mb-2">No research yet</h2>
-        <p className="text-sm text-[var(--muted)] mb-4">
-          Ask Tevy to research your competitors and market trends.
-          Research reports will appear here once generated.
-        </p>
-        <p className="text-xs text-[var(--muted)]">
-          Try: &quot;Research my top competitors and what they&apos;re posting&quot;
-        </p>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold mb-1">Market Research</h1>
+          <p className="text-[var(--muted)]">Competitor intel and market trends</p>
+        </div>
+        <button
+          onClick={handleTrigger}
+          disabled={loading}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            loading ? "bg-[var(--surface-light)] text-[var(--muted)] cursor-wait" : "bg-[var(--accent)] text-white hover:opacity-90"
+          }`}
+        >
+          {loading ? "⏳ Researching..." : "🔍 Run research"}
+        </button>
       </div>
+
+      {content ? (
+        <div className="glass rounded-xl p-6">
+          <pre className="whitespace-pre-wrap text-sm text-[var(--muted)] overflow-auto">{content}</pre>
+        </div>
+      ) : (
+        <div className="glass rounded-xl p-6 text-center">
+          <div className="text-4xl mb-3">🔍</div>
+          <h2 className="text-lg font-semibold mb-2">No research yet</h2>
+          <p className="text-sm text-[var(--muted)] mb-4">
+            Click &quot;Run research&quot; or ask Tevy via Telegram:
+          </p>
+          <p className="text-xs text-[var(--muted)] font-mono">
+            &quot;Research my top competitors and what they&apos;re posting&quot;
+          </p>
+        </div>
+      )}
     </div>
   );
 }
 
 /* ─── SEO TAB ─── */
 function SEOTab() {
+  const [content, setContent] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const instanceId = localStorage.getItem("tevy_instance_id") || "";
+
+  useEffect(() => {
+    if (!instanceId) return;
+    readAgentFile(instanceId, "memory/seo/audit.md")
+      .then((res) => { if (res.content) setContent(res.content); })
+      .catch(() => { /* no file yet */ });
+  }, [instanceId]);
+
+  const handleTrigger = async () => {
+    if (!instanceId) return;
+    setLoading(true);
+    try {
+      await triggerTask(instanceId, "Run a comprehensive SEO audit of my website. Check meta tags, headings, Open Graph tags, sitemap, robots.txt, broken links, page speed, mobile-friendliness, and internal linking. Write a prioritized report with actionable recommendations. Save to memory/seo/audit.md");
+    } catch { /* */ }
+    let attempts = 0;
+    const poll = setInterval(async () => {
+      attempts++;
+      try {
+        const file = await readAgentFile(instanceId, "memory/seo/audit.md");
+        if (file.content) { setContent(file.content); setLoading(false); clearInterval(poll); }
+      } catch { /* */ }
+      if (attempts > 18) { setLoading(false); clearInterval(poll); }
+    }, 10000);
+  };
+
   return (
     <div className="p-8 max-w-4xl">
-      <h1 className="text-2xl font-bold mb-1">SEO Audit</h1>
-      <p className="text-[var(--muted)] mb-6">Website analysis and optimization recommendations</p>
-
-      <div className="glass rounded-xl p-6 text-center">
-        <div className="text-4xl mb-3">🔎</div>
-        <h2 className="text-lg font-semibold mb-2">No audit yet</h2>
-        <p className="text-sm text-[var(--muted)] mb-4">
-          Ask Tevy to run an SEO audit of your website.
-          Results and recommendations will appear here.
-        </p>
-        <p className="text-xs text-[var(--muted)]">
-          Try: &quot;Run an SEO audit of my website&quot;
-        </p>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold mb-1">SEO Audit</h1>
+          <p className="text-[var(--muted)]">Website analysis and optimization recommendations</p>
+        </div>
+        <button
+          onClick={handleTrigger}
+          disabled={loading}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            loading ? "bg-[var(--surface-light)] text-[var(--muted)] cursor-wait" : "bg-[var(--accent)] text-white hover:opacity-90"
+          }`}
+        >
+          {loading ? "⏳ Auditing..." : "🔎 Run SEO audit"}
+        </button>
       </div>
+
+      {content ? (
+        <div className="glass rounded-xl p-6">
+          <pre className="whitespace-pre-wrap text-sm text-[var(--muted)] overflow-auto">{content}</pre>
+        </div>
+      ) : (
+        <div className="glass rounded-xl p-6 text-center">
+          <div className="text-4xl mb-3">🔎</div>
+          <h2 className="text-lg font-semibold mb-2">No audit yet</h2>
+          <p className="text-sm text-[var(--muted)] mb-4">
+            Click &quot;Run SEO audit&quot; or ask Tevy via Telegram:
+          </p>
+          <p className="text-xs text-[var(--muted)] font-mono">
+            &quot;Run an SEO audit of my website&quot;
+          </p>
+        </div>
+      )}
     </div>
   );
 }
