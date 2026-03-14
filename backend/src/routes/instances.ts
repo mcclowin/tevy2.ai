@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { supabase } from "../lib/supabase.js";
-import { createMachine, getMachine, startMachine, stopMachine, deleteMachine, updateMachine, deleteVolume } from "../lib/fly.js";
+import { createMachine, getMachine, startMachine, stopMachine, deleteMachine, updateMachine, deleteVolume, execInMachine } from "../lib/fly.js";
 import { authMiddleware } from "../middleware/auth.js";
 import { env } from "../env.js";
 
@@ -540,35 +540,44 @@ instances.get("/:id/boot-status", async (c) => {
       return c.json({ stage: "offline", progress: 0, message: `Machine is ${flyState}`, ready: false });
     }
 
-    // Machine is "started" — actually probe the gateway to confirm it's responsive
+    // Machine is "started" — read actual gateway logs to determine real boot stage
     const webchatUrl = `https://${data.fly_machine_name}.fly.dev`;
-    const gatewayUrl = `http://${machine.private_ip || `${data.fly_machine_id}.vm.${data.fly_app_name || "tevy2-agents"}.internal`}:18789`;
     const createdAt = new Date(data.created_at).getTime();
     const uptimeMs = Date.now() - createdAt;
 
-    // Try to actually reach the gateway health endpoint via Fly's internal network
-    // Fall back to uptime-based estimate if probe fails (but with longer timeout)
-    let gatewayAlive = false;
+    // Try to read the last 20 lines of gateway logs from inside the container
+    let logLines = "";
     try {
-      const probeUrl = `https://${data.fly_machine_name}.fly.dev/__openclaw__/canvas/`;
-      const probe = await fetch(probeUrl, { signal: AbortSignal.timeout(5000) });
-      gatewayAlive = probe.ok || probe.status === 401 || probe.status === 403;
+      logLines = await execInMachine(data.fly_machine_id, [
+        "sh", "-c",
+        "cat /tmp/openclaw/openclaw-*.log 2>/dev/null | tail -20 || echo '__no_logs__'"
+      ]);
     } catch {
-      // Gateway not reachable yet
+      // exec might fail if machine is still early in boot
     }
 
-    if (gatewayAlive) {
+    // Parse log markers to determine actual boot stage
+    if (logLines.includes("[heartbeat] started") || logLines.includes("[health-monitor] started")) {
       return c.json({ stage: "ready", progress: 100, message: "Agent online!", ready: true, webchatUrl });
-    } else if (uptimeMs > 600_000) {
-      // 10+ min and still not responding — something is wrong
-      return c.json({ stage: "error", progress: 0, message: "Agent started but gateway not responding. Try restarting.", ready: false });
-    } else if (uptimeMs > 120_000) {
-      return c.json({ stage: "booting", progress: 70, message: "Gateway still initializing...", ready: false });
-    } else if (uptimeMs > 60_000) {
-      return c.json({ stage: "channels", progress: 50, message: "Booting AI engine...", ready: false });
-    } else {
-      return c.json({ stage: "booting", progress: 30, message: "Starting secure container...", ready: false });
     }
+    if (logLines.includes("[telegram]") && logLines.includes("starting provider")) {
+      return c.json({ stage: "channels", progress: 85, message: "Connecting Telegram...", ready: false });
+    }
+    if (logLines.includes("[gateway] listening on")) {
+      return c.json({ stage: "gateway", progress: 70, message: "Gateway up, connecting channels...", ready: false });
+    }
+    if (logLines.includes("[gateway]")) {
+      return c.json({ stage: "booting", progress: 50, message: "Gateway initializing...", ready: false });
+    }
+
+    // No gateway logs yet — use entrypoint markers or uptime
+    if (uptimeMs > 600_000) {
+      return c.json({ stage: "error", progress: 0, message: "Agent started but gateway not responding after 10min. Try restarting.", ready: false });
+    }
+    if (uptimeMs > 60_000) {
+      return c.json({ stage: "booting", progress: 40, message: "Starting OpenClaw gateway...", ready: false });
+    }
+    return c.json({ stage: "booting", progress: 20, message: "Configuring agent...", ready: false });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Status check failed";
     return c.json({ stage: "error", progress: 0, message, ready: false });

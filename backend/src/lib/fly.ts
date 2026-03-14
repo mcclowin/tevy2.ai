@@ -165,6 +165,20 @@ export async function deleteMachine(machineId: string): Promise<void> {
   if (!res.ok) throw new Error(`Fly delete failed: ${res.status}`);
 }
 
+// Execute a command inside a running machine and return stdout
+export async function execInMachine(machineId: string, cmd: string[]): Promise<string> {
+  const res = await flyFetch(`/machines/${machineId}/exec`, {
+    method: "POST",
+    body: JSON.stringify({ cmd, timeout: 5 }),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Fly exec failed (${res.status}): ${err}`);
+  }
+  const result = await res.json() as { stdout: string; stderr: string; exit_code: number };
+  return result.stdout || "";
+}
+
 export async function listMachines(): Promise<FlyMachine[]> {
   const res = await flyFetch("/machines");
   if (!res.ok) throw new Error(`Fly list machines failed: ${res.status}`);
