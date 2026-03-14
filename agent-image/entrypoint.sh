@@ -9,8 +9,24 @@ echo "Business: ${BUSINESS_NAME:-unknown}"
 # --- 1. Generate workspace files from env vars ---
 
 # SOUL.md + AGENTS.md are static (from templates)
-cp /workspace/templates/SOUL.md /workspace/SOUL.md
-cp /workspace/templates/AGENTS.md /workspace/AGENTS.md
+# Templates are baked into the image at /opt/tevy2-templates/ (survives volume mounts)
+# Fallback to /workspace/templates/ for backwards compatibility
+TMPL_DIR="/opt/tevy2-templates"
+[[ ! -d "$TMPL_DIR" ]] && TMPL_DIR="/workspace/templates"
+
+if [[ -f "$TMPL_DIR/SOUL.md" ]]; then
+  cp "$TMPL_DIR/SOUL.md" /workspace/SOUL.md
+  echo "  SOUL.md: copied from templates"
+else
+  echo "  SOUL.md: WARNING — template not found!"
+fi
+
+if [[ -f "$TMPL_DIR/AGENTS.md" ]]; then
+  cp "$TMPL_DIR/AGENTS.md" /workspace/AGENTS.md
+  echo "  AGENTS.md: copied from templates"
+else
+  echo "  AGENTS.md: WARNING — template not found!"
+fi
 
 # USER.md — generated from env vars
 cat > /workspace/USER.md <<EOF

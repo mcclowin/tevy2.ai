@@ -24,8 +24,11 @@ RUN mkdir -p /workspace/skills /workspace/memory
 # Copy pre-configured skills
 COPY skills/ /workspace/skills/
 
-# Copy templates (SOUL.md, AGENTS.md — static parts)
+# Copy templates to BOTH locations:
+# /workspace/templates/ — for backwards compatibility (no volume mount)
+# /opt/tevy2-templates/ — safe location that survives volume mounts on /workspace
 COPY templates/ /workspace/templates/
+COPY templates/ /opt/tevy2-templates/
 
 # Copy entrypoint
 COPY entrypoint.sh /entrypoint.sh
