@@ -161,6 +161,9 @@ config = {
         'auth': {
             'mode': 'token',
             'token': '${GATEWAY_TOKEN}'
+        },
+        'controlUi': {
+            'enabled': True,
         }
     },
     'browser': {
@@ -187,6 +190,33 @@ if tg_token:
     }
     config['plugins']['entries']['telegram'] = {'enabled': True}
 
+# Webchat — Option B: allow dashboard origin to connect directly to gateway WebSocket
+dashboard_origin = os.environ.get('TEVY2_DASHBOARD_URL', '')
+if dashboard_origin:
+    allowed = [dashboard_origin]
+    # Also allow common dev origins
+    if 'localhost' not in dashboard_origin:
+        allowed.append('http://localhost:3000')
+    config['gateway']['controlUi']['allowedOrigins'] = allowed
+
+# Heartbeat cron — sync with dashboard every 30 minutes
+backend_url = os.environ.get('TEVY2_BACKEND_URL', '')
+if backend_url:
+    config['cron'] = {
+        'jobs': [
+            {
+                'name': 'tevy-sync',
+                'schedule': {'kind': 'every', 'everyMs': 1800000},  # 30 min
+                'payload': {
+                    'kind': 'systemEvent',
+                    'text': f'Heartbeat: Run the tevy-sync skill. Execute: bash /workspace/skills/tevy-sync/sync.sh — then process any PENDING TASKS returned. For draft_posts tasks, draft the posts and send results back via: curl -X POST -H \"Authorization: Bearer {os.environ.get(\"GATEWAY_TOKEN\",\"\")}\" -H \"Content-Type: application/json\" -d \'{{\"task_id\": \"<id>\", \"type\": \"draft_posts\", \"results\": {{\"drafts\": [...]}}}}\' {backend_url}/api/sync/report'
+                },
+                'sessionTarget': 'main',
+                'enabled': True
+            }
+        ]
+    }
+
 # TAVILY_API_KEY is passed as env var — available to agent scripts
 # but NOT written into OpenClaw config (not a supported provider)
 
@@ -212,6 +242,12 @@ with open('/root/.openclaw/agents/main/agent/auth-profiles.json', 'w') as f:
 
 if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
     echo "  Telegram: enabled"
+fi
+if [ -n "$TEVY2_DASHBOARD_URL" ]; then
+    echo "  Webchat: enabled (origin: $TEVY2_DASHBOARD_URL)"
+fi
+if [ -n "$TEVY2_BACKEND_URL" ]; then
+    echo "  Heartbeat sync: enabled (backend: $TEVY2_BACKEND_URL)"
 fi
 echo "  Config written to /root/.openclaw/openclaw.json"
 echo "  Gateway token: ${GATEWAY_TOKEN}"

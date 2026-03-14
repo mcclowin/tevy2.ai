@@ -84,6 +84,9 @@ instances.post("/", async (c) => {
     POSTING_GOAL: body.postingGoal || "3-4 posts per week",
     CHAT_CHANNEL: body.chatChannel || "webchat",
     TIMEZONE: "UTC", // TODO: detect from user
+    // Heartbeat sync + webchat
+    TEVY2_BACKEND_URL: env.BACKEND_PUBLIC_URL,
+    TEVY2_DASHBOARD_URL: env.FRONTEND_URL,
   };
 
   // Base64 encode brand notes + competitors for the entrypoint
@@ -370,6 +373,8 @@ instances.post("/:id/update", async (c) => {
       TIMEZONE: "UTC",
       ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY,
       MODEL: env.DEFAULT_MODEL,
+      TEVY2_BACKEND_URL: env.BACKEND_PUBLIC_URL,
+      TEVY2_DASHBOARD_URL: env.FRONTEND_URL,
     };
 
     if (config.competitors) {

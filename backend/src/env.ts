@@ -36,4 +36,7 @@ export const env = {
 
   // Frontend
   FRONTEND_URL: optional("FRONTEND_URL", "http://localhost:3000"),
+
+  // Backend public URL (passed to bot containers for heartbeat sync)
+  BACKEND_PUBLIC_URL: optional("BACKEND_PUBLIC_URL", "http://localhost:3001"),
 };

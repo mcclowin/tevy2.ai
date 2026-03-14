@@ -99,3 +99,31 @@ export function readAgentFile(id: string, filePath: string) {
     `/api/instances/${id}/files/${filePath}`
   );
 }
+
+// Approvals
+export function listApprovals(status?: string) {
+  const qs = status ? `?status=${status}` : "";
+  return api<{ approvals: Array<Record<string, unknown>> }>(`/api/approvals${qs}`);
+}
+
+export function approvePost(id: string, data?: { scheduled_for?: string; notes?: string }) {
+  return api(`/api/approvals/${id}/approve`, { method: "POST", body: data || {} });
+}
+
+export function rejectPost(id: string, notes?: string) {
+  return api(`/api/approvals/${id}/reject`, { method: "POST", body: { notes } });
+}
+
+export function editApproval(id: string, data: { content?: string; platform?: string; scheduled_for?: string }) {
+  return api(`/api/approvals/${id}`, { method: "PUT", body: data });
+}
+
+// Tasks
+export function listTasks(status?: string) {
+  const qs = status ? `?status=${status}` : "";
+  return api<{ tasks: Array<Record<string, unknown>> }>(`/api/tasks${qs}`);
+}
+
+export function createTask(data: { type: string; brief: string; metadata?: Record<string, unknown> }) {
+  return api<{ success: boolean; task: Record<string, unknown> }>("/api/tasks", { method: "POST", body: data });
+}
