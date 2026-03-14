@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { createInstance, listInstances, triggerTask, readAgentFile } from "@/lib/api";
+import { createInstance, listInstances, triggerTask, readAgentFile, deleteInstance, startInstance, stopInstance } from "@/lib/api";
 import { signOut, isAuthenticated, getUser, getSessionToken } from "@/lib/auth";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -970,6 +970,42 @@ function CalendarTab() {
 
 /* ─── SETTINGS TAB ─── */
 function SettingsTab() {
+  const [deleting, setDeleting] = useState(false);
+  const [restarting, setRestarting] = useState(false);
+  const instanceId = typeof window !== "undefined" ? localStorage.getItem("tevy_instance_id") : null;
+
+  const handleDelete = async () => {
+    if (!instanceId) return;
+    const confirmed = window.confirm("Are you sure? This will permanently delete your agent, its data, and Fly machine.");
+    if (!confirmed) return;
+    setDeleting(true);
+    try {
+      await deleteInstance(instanceId);
+      localStorage.removeItem("tevy_instance_id");
+      localStorage.removeItem("tevy_instance_name");
+      localStorage.removeItem("tevy_webchat_url");
+      localStorage.removeItem("tevy_business_name");
+      window.location.reload();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Delete failed");
+      setDeleting(false);
+    }
+  };
+
+  const handleRestart = async () => {
+    if (!instanceId) return;
+    setRestarting(true);
+    try {
+      await stopInstance(instanceId);
+      await new Promise((r) => setTimeout(r, 2000));
+      await startInstance(instanceId);
+      setRestarting(false);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Restart failed");
+      setRestarting(false);
+    }
+  };
+
   const socialChannels = [
     { icon: "📸", name: "Instagram", status: "disconnected", detail: "Connect account", color: "#E4405F" },
     { icon: "🎵", name: "TikTok", status: "disconnected", detail: "Connect account", color: "#000000" },
@@ -1052,11 +1088,19 @@ function SettingsTab() {
             </div>
           </div>
           <div className="flex gap-2">
-            <button className="px-3 py-1.5 rounded-lg text-xs bg-[var(--surface-light)] text-[var(--muted)] hover:text-white transition-colors">
-              Restart agent
+            <button
+              onClick={handleRestart}
+              disabled={restarting || !instanceId}
+              className="px-3 py-1.5 rounded-lg text-xs bg-[var(--surface-light)] text-[var(--muted)] hover:text-white transition-colors disabled:opacity-40"
+            >
+              {restarting ? "Restarting..." : "Restart agent"}
             </button>
-            <button className="px-3 py-1.5 rounded-lg text-xs bg-[var(--surface-light)] text-red-400/60 hover:text-red-400 transition-colors">
-              Delete agent
+            <button
+              onClick={handleDelete}
+              disabled={deleting || !instanceId}
+              className="px-3 py-1.5 rounded-lg text-xs bg-[var(--surface-light)] text-red-400/60 hover:text-red-400 transition-colors disabled:opacity-40"
+            >
+              {deleting ? "Deleting..." : "🗑️ Delete agent & data"}
             </button>
           </div>
         </div>
