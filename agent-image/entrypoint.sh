@@ -147,6 +147,9 @@ config = {
             'token': '${GATEWAY_TOKEN}'
         }
     },
+    'browser': {
+        'enabled': False
+    },
     'agents': {
         'defaults': {
             'workspace': '/workspace',
