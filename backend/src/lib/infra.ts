@@ -1,14 +1,15 @@
 /**
  * Infrastructure provider abstraction
  *
- * Routes to either Fly.io or Docker host based on INFRA_PROVIDER env var.
- * Both providers export the same interface.
+ * Routes to Fly.io or Docker host for legacy code (instances.ts).
+ * Hetzner provider is used directly by agents.ts — not through this abstraction.
  */
 
 import { env } from "../env.js";
 import * as fly from "./fly.js";
 import * as docker from "./docker-host.js";
 
+// Legacy providers only — hetzner uses its own route (agents.ts)
 const provider = env.INFRA_PROVIDER === "fly" ? fly : docker;
 
 export const createMachine = provider.createMachine;

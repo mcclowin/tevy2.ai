@@ -23,8 +23,8 @@ export const env = {
   SUPABASE_ANON_KEY: required("SUPABASE_ANON_KEY"),
   SUPABASE_SERVICE_ROLE_KEY: required("SUPABASE_SERVICE_ROLE_KEY"),
 
-  // Infrastructure provider: "fly" or "docker"
-  INFRA_PROVIDER: optional("INFRA_PROVIDER", "docker"),
+  // Infrastructure provider: "fly" | "docker" | "hetzner"
+  INFRA_PROVIDER: optional("INFRA_PROVIDER", "hetzner"),
 
   // Fly.io (only needed if INFRA_PROVIDER=fly)
   FLY_API_TOKEN: optional("FLY_API_TOKEN", ""),
@@ -32,11 +32,18 @@ export const env = {
   FLY_REGION: optional("FLY_REGION", "lhr"),
 
   // Docker host (only needed if INFRA_PROVIDER=docker)
-  // Point to Docker Engine API — e.g. http://your-hetzner-ip:2375 or via SSH tunnel http://localhost:2375
   DOCKER_HOST_URL: optional("DOCKER_HOST_URL", "http://localhost:2375"),
-  // Public URL for the Docker host (used to generate webchat URLs)
-  // e.g. https://bots.tevy2.ai or http://your-hetzner-ip
   DOCKER_HOST_PUBLIC_URL: optional("DOCKER_HOST_PUBLIC_URL", "http://localhost"),
+
+  // Hetzner Cloud (only needed if INFRA_PROVIDER=hetzner)
+  HETZNER_API_TOKEN: optional("HETZNER_API_TOKEN", ""),
+  HETZNER_SERVER_TYPE: optional("HETZNER_SERVER_TYPE", "cx23"),  // 2 vCPU, 4GB RAM, 40GB NVMe, €2.99/mo
+  HETZNER_LOCATION: optional("HETZNER_LOCATION", "fsn1"),       // Falkenstein (cheapest EU)
+  HETZNER_SNAPSHOT_ID: optional("HETZNER_SNAPSHOT_ID", ""),      // Base image snapshot
+  HETZNER_SSH_KEY_ID: optional("HETZNER_SSH_KEY_ID", ""),        // SSH key ID in Hetzner
+  HETZNER_SSH_KEY_PATH: optional("HETZNER_SSH_KEY_PATH", ""),    // Local path to private key
+  HETZNER_FIREWALL_ID: optional("HETZNER_FIREWALL_ID", ""),      // Firewall to attach
+  HETZNER_AGENT_DOMAIN: optional("HETZNER_AGENT_DOMAIN", "agents.tevy2.ai"), // Wildcard domain
 
   // Agent
   ANTHROPIC_API_KEY: required("ANTHROPIC_API_KEY"),
