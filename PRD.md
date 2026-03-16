@@ -382,7 +382,123 @@ Same routes, same Hetzner calls, same everything. Tevy2 dashboard is just one co
 
 ---
 
-## 17. Tech Stack
+## 17. Dev Platform Transition
+
+The Tevy2 backend IS the dev platform. No refactor needed — just expose what's already there.
+
+### What exists today (Tevy2 backend)
+
+```
+POST   /v1/agents                    → hetzner.createServer()
+GET    /v1/agents                    → list customer's agents
+GET    /v1/agents/:id                → get agent status
+DELETE /v1/agents/:id                → backup + delete VPS
+POST   /v1/agents/:id/actions/start  → hetzner.poweron()
+POST   /v1/agents/:id/actions/stop   → hetzner.poweroff()
+POST   /v1/agents/:id/actions/backup → ssh: tar + upload
+GET    /v1/agents/:id/files/*        → ssh: cat file
+PUT    /v1/agents/:id/files/*        → ssh: write file + restart
+POST   /v1/agents/:id/ssh            → ssh: run command
+```
+
+Auth: Stytch session tokens (dashboard users).
+
+### What changes to become a dev platform
+
+**Add ONE middleware, ONE table column, ONE new route:**
+
+```sql
+-- Add to accounts table:
+ALTER TABLE accounts ADD COLUMN api_key_hash TEXT;
+```
+
+```typescript
+// auth.ts — add 4 lines to existing middleware:
+if (authHeader?.startsWith("Bearer tvk_")) {
+  const account = await db.query(
+    "SELECT * FROM accounts WHERE api_key_hash = $1", [hash(key)]
+  );
+  c.set("account", account);
+}
+```
+
+```typescript
+// ONE new route:
+app.post("/v1/auth/api-keys", sessionAuth, async (c) => {
+  const key = `tvk_${crypto.randomBytes(32).toString("hex")}`;
+  await db.query("UPDATE accounts SET api_key_hash = $1 WHERE id = $2", [hash(key), account.id]);
+  return c.json({ key }); // shown once, never stored in plain text
+});
+```
+
+**That's it.** Same routes, same Hetzner calls, same SSH commands. Devs use API keys instead of Stytch sessions.
+
+### Dev platform API (same as Tevy2 backend)
+
+```
+# Create an agent
+curl -X POST https://api.tevy2.ai/v1/agents \
+  -H "Authorization: Bearer tvk_abc123..." \
+  -d '{
+    "slug": "my-research-bot",
+    "name": "Research Agent",
+    "soul_md": "You are a crypto research analyst...",
+    "agents_md": "Read SOUL.md on every session...",
+    "skills": ["web-search", "market-research"],
+    "keys": { "telegram_token": "bot456:DEF..." }
+  }'
+
+# Check status
+curl https://api.tevy2.ai/v1/agents/abc-123 \
+  -H "Authorization: Bearer tvk_abc123..."
+
+# Read a file from the agent
+curl https://api.tevy2.ai/v1/agents/abc-123/files/workspace/MEMORY.md \
+  -H "Authorization: Bearer tvk_abc123..."
+
+# Write a file
+curl -X PUT https://api.tevy2.ai/v1/agents/abc-123/files/workspace/SOUL.md \
+  -H "Authorization: Bearer tvk_abc123..." \
+  -d '{"content": "You are a helpful assistant..."}'
+
+# Install a skill
+curl -X POST https://api.tevy2.ai/v1/agents/abc-123/ssh \
+  -H "Authorization: Bearer tvk_abc123..." \
+  -d '{"command": "clawhub install market-research"}'
+
+# Stop the agent
+curl -X POST https://api.tevy2.ai/v1/agents/abc-123/actions/stop \
+  -H "Authorization: Bearer tvk_abc123..."
+```
+
+### Timeline
+
+| When | What | Effort |
+|------|------|--------|
+| Day 1 (now) | Tevy2 backend serves dashboard via Stytch auth | Already built |
+| Day 1 (now) | Same routes work for dev platform — just needs API key auth | ~2 hours |
+| Week 2 | Add "Generate API Key" button to dashboard Settings tab | ~1 hour |
+| Week 2 | Write API docs (the routes already exist) | ~4 hours |
+| Month 2 | Add usage metering + Stripe usage-based billing for devs | ~1 week |
+
+### Two products, one backend
+
+```
+tevy2.ai (consumer)              api.tevy2.ai (dev platform)
+├── Dashboard (Next.js)          ├── Same API, same routes
+├── Auth: Stytch magic link      ├── Auth: API key (tvk_...)
+├── Fixed plans: €9.99-29.99     ├── Usage-based pricing
+├── Marketing template only      ├── Any template or custom
+└── Calls /v1/agents/*           └── Calls /v1/agents/*
+         ↘                      ↙
+          Same Railway backend
+          Same Hetzner VPSes
+          Same everything
+```
+
+---
+
+## 18. Tech Stack
 
 | Component | Technology | Cost |
 |-----------|-----------|------|
