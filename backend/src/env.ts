@@ -14,9 +14,9 @@ function optional(key: string, fallback: string): string {
 export const env = {
   PORT: parseInt(optional("PORT", "3001")),
 
-  // Stytch (auth)
-  STYTCH_PROJECT_ID: required("STYTCH_PROJECT_ID"),
-  STYTCH_SECRET: required("STYTCH_SECRET"),
+  // Stytch (auth) — optional for local dev without auth
+  STYTCH_PROJECT_ID: optional("STYTCH_PROJECT_ID", ""),
+  STYTCH_SECRET: optional("STYTCH_SECRET", ""),
 
   // Supabase (DB only — not used for auth)
   SUPABASE_URL: required("SUPABASE_URL"),
