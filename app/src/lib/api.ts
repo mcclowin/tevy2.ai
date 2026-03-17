@@ -13,7 +13,6 @@ async function api<T>(path: string, options: ApiOptions = {}): Promise<T> {
   const token = await getAccessToken();
 
   if (!token && !path.startsWith("/api/auth")) {
-    // Not authenticated — redirect to login
     if (typeof window !== "undefined") {
       window.location.href = "/login";
     }
@@ -34,7 +33,6 @@ async function api<T>(path: string, options: ApiOptions = {}): Promise<T> {
     body: body ? JSON.stringify(body) : undefined,
   });
 
-  // Handle auth expiry
   if (res.status === 401) {
     signOut();
     if (typeof window !== "undefined") {
@@ -52,78 +50,86 @@ async function api<T>(path: string, options: ApiOptions = {}): Promise<T> {
   return data as T;
 }
 
-// Instances
-export function createInstance(data: Record<string, unknown>) {
+// ── Agents (Hetzner VPS) ──────────────────────────────────────────────
+
+export type Agent = {
+  id: string;
+  slug: string;
+  state: string;
+  liveStatus?: string;
+  hetzner_server_id: string;
+  hetzner_ip: string;
+  business_name: string;
+  website_url: string | null;
+  webchatUrl?: string;
+  config: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+export function createAgent(data: Record<string, unknown>) {
+  return api<{ success: boolean; agent: Agent }>("/api/agents", {
+    method: "POST",
+    body: data,
+  });
+}
+
+export function listAgents() {
+  return api<{ agents: Agent[] }>("/api/agents");
+}
+
+export function getAgent(id: string) {
+  return api<Agent>(`/api/agents/${id}`);
+}
+
+export function startAgent(id: string) {
+  return api<{ success: boolean; state: string }>(`/api/agents/${id}/start`, {
+    method: "POST",
+  });
+}
+
+export function stopAgent(id: string) {
+  return api<{ success: boolean; state: string }>(`/api/agents/${id}/stop`, {
+    method: "POST",
+  });
+}
+
+export function deleteAgent(id: string) {
+  return api<{ success: boolean }>(`/api/agents/${id}`, { method: "DELETE" });
+}
+
+export function backupAgent(id: string) {
+  return api<{ success: boolean; path: string }>(`/api/agents/${id}/backup`, {
+    method: "POST",
+  });
+}
+
+export function getBootStatus(id: string) {
   return api<{
-    success: boolean;
-    instance: {
-      id: string;
-      name: string;
-      status: string;
-      webchatUrl: string;
-      flyMachineId: string;
-      region: string;
-    };
-  }>("/api/instances", { method: "POST", body: data });
-}
-
-export function listInstances() {
-  return api<{ instances: Array<Record<string, unknown>> }>("/api/instances");
-}
-
-export function getInstance(id: string) {
-  return api<Record<string, unknown>>(`/api/instances/${id}`);
-}
-
-export function startInstance(id: string) {
-  return api(`/api/instances/${id}/start`, { method: "POST" });
-}
-
-export function stopInstance(id: string) {
-  return api(`/api/instances/${id}/stop`, { method: "POST" });
-}
-
-export function deleteInstance(id: string) {
-  return api(`/api/instances/${id}`, { method: "DELETE" });
-}
-
-export function triggerTask(id: string, task: string) {
-  return api<{ success: boolean; message: string; telegramMessage?: string }>(
-    `/api/instances/${id}/trigger`,
-    { method: "POST", body: { task } }
-  );
+    stage: string;
+    progress: number;
+    message: string;
+    ready: boolean;
+    webchatUrl?: string;
+  }>(`/api/agents/${id}/boot-status`);
 }
 
 export function readAgentFile(id: string, filePath: string) {
   return api<{ path: string; content: string }>(
-    `/api/instances/${id}/files/${filePath}`
+    `/api/agents/${id}/files/${filePath}`
   );
 }
 
-// Approvals
-export function listApprovals(status?: string) {
-  const qs = status ? `?status=${status}` : "";
-  return api<{ approvals: Array<Record<string, unknown>> }>(`/api/approvals${qs}`);
+export function writeAgentFile(id: string, filePath: string, content: string) {
+  return api<{ success: boolean; path: string }>(
+    `/api/agents/${id}/files/${filePath}`,
+    { method: "PUT", body: { content } }
+  );
 }
 
-export function approvePost(id: string, data?: { scheduled_for?: string; notes?: string }) {
-  return api(`/api/approvals/${id}/approve`, { method: "POST", body: data || {} });
-}
-
-export function rejectPost(id: string, notes?: string) {
-  return api(`/api/approvals/${id}/reject`, { method: "POST", body: { notes } });
-}
-
-export function editApproval(id: string, data: { content?: string; platform?: string; scheduled_for?: string }) {
-  return api(`/api/approvals/${id}`, { method: "PUT", body: data });
-}
-
-// Tasks
-export function listTasks(status?: string) {
-  const qs = status ? `?status=${status}` : "";
-  return api<{ tasks: Array<Record<string, unknown>> }>(`/api/tasks${qs}`);
-}
-
-export function createTask(data: { type: string; brief: string; metadata?: Record<string, unknown> }) {
-  return api<{ success: boolean; task: Record<string, unknown> }>("/api/tasks", { method: "POST", body: data });
+export function execOnAgent(id: string, command: string) {
+  return api<{ stdout: string; stderr: string; exitCode: number }>(
+    `/api/agents/${id}/ssh`,
+    { method: "POST", body: { command } }
+  );
 }

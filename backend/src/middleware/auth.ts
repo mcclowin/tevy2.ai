@@ -1,14 +1,31 @@
 import type { Context, Next } from "hono";
-import { stytchClient } from "../lib/stytch.js";
 import { supabase } from "../lib/supabase.js";
+import { env } from "../env.js";
 
 // Middleware: verify Stytch session token from Authorization header
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function authMiddleware(c: Context<any>, next: Next) {
-  // Dev mode: bypass auth with mock user
+  // Dev mode: bypass auth — use first account in DB or create one
   if (process.env.DEV_BYPASS_AUTH === "true") {
-    c.set("userId", "00000000-0000-0000-0000-000000000000");
-    c.set("userEmail", "dev@tevy2.ai");
+    const { data: accounts } = await supabase
+      .from("accounts")
+      .select("id, email")
+      .limit(1);
+
+    let account = accounts?.[0];
+    if (!account) {
+      // Auto-create dev account
+      const { data } = await supabase
+        .from("accounts")
+        .insert({ email: "dev@tevy2.ai", plan: "starter" })
+        .select()
+        .single();
+      account = data;
+    }
+
+    c.set("userId", account!.id);
+    c.set("userEmail", account!.email);
+    c.set("accountId", account!.id);
     await next();
     return;
   }
@@ -21,7 +38,9 @@ export async function authMiddleware(c: Context<any>, next: Next) {
   const sessionToken = authHeader.slice(7);
 
   try {
-    // Verify session with Stytch
+    // Verify session with Stytch (lazy import to avoid crash when not configured)
+    const { stytchClient } = await import("../lib/stytch.js");
+
     const response = await stytchClient.sessions.authenticate({
       session_token: sessionToken,
     });
@@ -33,20 +52,20 @@ export async function authMiddleware(c: Context<any>, next: Next) {
       return c.json({ error: "Invalid session" }, 401);
     }
 
-    // Look up our internal user ID
-    const { data: user } = await supabase
-      .from("users")
+    // Look up our internal account
+    const { data: account } = await supabase
+      .from("accounts")
       .select("id, email")
       .eq("stytch_user_id", stytchUserId)
       .single();
 
-    if (!user) {
-      return c.json({ error: "User not found" }, 401);
+    if (!account) {
+      return c.json({ error: "Account not found" }, 401);
     }
 
-    // Attach user info to context
-    c.set("userId", user.id);
-    c.set("userEmail", user.email || userEmail);
+    c.set("userId", account.id);
+    c.set("userEmail", account.email || userEmail);
+    c.set("accountId", account.id);
 
     await next();
   } catch (err: unknown) {

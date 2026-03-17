@@ -12,11 +12,7 @@ import { logger } from "hono/logger";
 import { serve } from "@hono/node-server";
 import { env } from "./env.js";
 import authRoutes from "./routes/auth.js";
-import instanceRoutes from "./routes/instances.js";
 import agentRoutes from "./routes/agents.js";
-import syncRoutes from "./routes/sync.js";
-import approvalsRoutes from "./routes/approvals.js";
-import tasksRoutes from "./routes/tasks.js";
 
 const app = new Hono();
 
@@ -37,11 +33,7 @@ app.get("/health", (c) => c.json({ status: "ok", service: "tevy2-backend" }));
 
 // Routes
 app.route("/api/auth", authRoutes);
-app.route("/api/instances", instanceRoutes);  // Legacy (Fly/Docker)
-app.route("/api/agents", agentRoutes);        // New (Hetzner VPS)
-app.route("/api/sync", syncRoutes);
-app.route("/api/approvals", approvalsRoutes);
-app.route("/api/tasks", tasksRoutes);
+app.route("/api/agents", agentRoutes);
 
 // 404
 app.notFound((c) => c.json({ error: "Not found" }, 404));
