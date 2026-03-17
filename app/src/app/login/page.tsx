@@ -26,7 +26,12 @@ export default function LoginPage() {
     try {
       setError(null);
       setLoading(true);
-      await sendMagicLink(email);
+      const result = await sendMagicLink(email);
+      // Dev bypass: instant login, redirect to dashboard
+      if (result.dev_bypass) {
+        router.push("/dashboard");
+        return;
+      }
       setSent(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to send link");

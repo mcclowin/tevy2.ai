@@ -2,7 +2,7 @@
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
-// Send magic link via backend → Stytch
+// Send magic link via backend → Stytch (or instant dev login)
 export async function sendMagicLink(email: string) {
   const res = await fetch(`${API_URL}/api/auth/magic-link`, {
     method: "POST",
@@ -12,6 +12,14 @@ export async function sendMagicLink(email: string) {
 
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || "Failed to send magic link");
+
+  // Dev bypass: backend returns session_token directly, skip magic link flow
+  if (data.dev_bypass && data.session_token) {
+    localStorage.setItem("tevy_session_token", data.session_token);
+    localStorage.setItem("tevy_user_id", data.user.id);
+    localStorage.setItem("tevy_user_email", data.user.email);
+  }
+
   return data;
 }
 

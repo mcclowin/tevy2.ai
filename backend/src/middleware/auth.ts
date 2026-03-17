@@ -5,22 +5,39 @@ import { env } from "../env.js";
 // Middleware: verify Stytch session token from Authorization header
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function authMiddleware(c: Context<any>, next: Next) {
-  // Dev mode: bypass auth — use first account in DB or create one
+  // Dev mode: bypass auth
   if (process.env.DEV_BYPASS_AUTH === "true") {
-    const { data: accounts } = await supabase
-      .from("accounts")
-      .select("id, email")
-      .limit(1);
+    // Try to extract account ID from dev token (dev_<uuid>)
+    const authHeader = c.req.header("Authorization");
+    const token = authHeader?.startsWith("Bearer dev_") ? authHeader.slice(11) : null;
 
-    let account = accounts?.[0];
-    if (!account) {
-      // Auto-create dev account
+    let account: { id: string; email: string } | null = null;
+
+    if (token) {
       const { data } = await supabase
         .from("accounts")
-        .insert({ email: "dev@tevy2.ai", plan: "starter" })
-        .select()
+        .select("id, email")
+        .eq("id", token)
         .single();
       account = data;
+    }
+
+    if (!account) {
+      // Fallback: first account or create one
+      const { data: accounts } = await supabase
+        .from("accounts")
+        .select("id, email")
+        .limit(1);
+
+      account = accounts?.[0] || null;
+      if (!account) {
+        const { data } = await supabase
+          .from("accounts")
+          .insert({ email: "dev@tevy2.ai", plan: "starter" })
+          .select()
+          .single();
+        account = data;
+      }
     }
 
     c.set("userId", account!.id);

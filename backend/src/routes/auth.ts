@@ -1,11 +1,10 @@
 import { Hono } from "hono";
-import { stytchClient } from "../lib/stytch.js";
 import { supabase } from "../lib/supabase.js";
 import { env } from "../env.js";
 
 const auth = new Hono();
 
-// POST /api/auth/magic-link — send magic link via Stytch
+// POST /api/auth/magic-link — send magic link (or instant dev login)
 auth.post("/magic-link", async (c) => {
   const { email } = await c.req.json<{ email: string }>();
 
@@ -13,7 +12,40 @@ auth.post("/magic-link", async (c) => {
     return c.json({ error: "Valid email required" }, 400);
   }
 
+  // Dev bypass: instant login, no Stytch
+  if (env.DEV_BYPASS_AUTH) {
+    // Upsert account in DB
+    const { data: account, error: dbError } = await supabase
+      .from("accounts")
+      .upsert(
+        {
+          email,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "email" }
+      )
+      .select()
+      .single();
+
+    if (dbError) {
+      console.error("DB upsert error:", dbError);
+      return c.json({ error: "Failed to create account" }, 500);
+    }
+
+    return c.json({
+      success: true,
+      dev_bypass: true,
+      session_token: `dev_${account.id}`,
+      user: {
+        id: account.id,
+        email,
+      },
+    });
+  }
+
+  // Production: send magic link via Stytch
   try {
+    const { stytchClient } = await import("../lib/stytch.js");
     await stytchClient.magicLinks.email.loginOrCreate({
       email,
       login_magic_link_url: `${env.FRONTEND_URL}/auth/callback`,
@@ -37,32 +69,32 @@ auth.post("/authenticate", async (c) => {
   }
 
   try {
-    // Authenticate the magic link token with Stytch
+    const { stytchClient } = await import("../lib/stytch.js");
     const response = await stytchClient.magicLinks.authenticate({
       token,
-      session_duration_minutes: 60 * 24 * 7, // 7 day session
+      session_duration_minutes: 60 * 24 * 7,
     });
 
     const stytchUserId = response.user_id;
     const userEmail = response.user.emails?.[0]?.email || "";
 
-    // Upsert user in our DB
-    const { data: user, error: dbError } = await supabase
-      .from("users")
+    // Upsert account in DB
+    const { data: account, error: dbError } = await supabase
+      .from("accounts")
       .upsert(
         {
-          stytch_user_id: stytchUserId,
           email: userEmail,
+          stytch_user_id: stytchUserId,
           updated_at: new Date().toISOString(),
         },
-        { onConflict: "stytch_user_id" }
+        { onConflict: "email" }
       )
       .select()
       .single();
 
     if (dbError) {
       console.error("DB upsert error:", dbError);
-      throw new Error("Failed to create user record");
+      throw new Error("Failed to create account");
     }
 
     return c.json({
@@ -70,7 +102,7 @@ auth.post("/authenticate", async (c) => {
       session_token: response.session_token,
       session_jwt: response.session_jwt,
       user: {
-        id: user.id,
+        id: account.id,
         email: userEmail,
       },
     });
@@ -81,27 +113,48 @@ auth.post("/authenticate", async (c) => {
   }
 });
 
-// POST /api/auth/logout — revoke Stytch session
+// POST /api/auth/logout
 auth.post("/logout", async (c) => {
   const sessionToken = c.req.header("Authorization")?.replace("Bearer ", "");
-  if (sessionToken) {
+
+  if (sessionToken && !sessionToken.startsWith("dev_")) {
     try {
+      const { stytchClient } = await import("../lib/stytch.js");
       await stytchClient.sessions.revoke({ session_token: sessionToken });
-    } catch {
-      // Session might already be expired
-    }
+    } catch { /* already expired */ }
   }
+
   return c.json({ success: true });
 });
 
-// GET /api/auth/me — get current user (validates session)
+// GET /api/auth/me — get current user
 auth.get("/me", async (c) => {
   const sessionToken = c.req.header("Authorization")?.replace("Bearer ", "");
   if (!sessionToken) {
     return c.json({ error: "Not authenticated" }, 401);
   }
 
+  // Dev bypass: extract account ID from dev token
+  if (sessionToken.startsWith("dev_")) {
+    const accountId = sessionToken.replace("dev_", "");
+    const { data: account } = await supabase
+      .from("accounts")
+      .select("*")
+      .eq("id", accountId)
+      .single();
+
+    if (!account) return c.json({ error: "Not authenticated" }, 401);
+
+    return c.json({
+      id: account.id,
+      email: account.email,
+      name: null,
+    });
+  }
+
+  // Production: validate via Stytch
   try {
+    const { stytchClient } = await import("../lib/stytch.js");
     const response = await stytchClient.sessions.authenticate({
       session_token: sessionToken,
     });
@@ -109,17 +162,16 @@ auth.get("/me", async (c) => {
     const stytchUserId = response.user?.user_id || response.session?.user_id;
     const userEmail = response.user?.emails?.[0]?.email || "";
 
-    // Get our internal user record
-    const { data: user } = await supabase
-      .from("users")
+    const { data: account } = await supabase
+      .from("accounts")
       .select("*")
       .eq("stytch_user_id", stytchUserId)
       .single();
 
     return c.json({
-      id: user?.id || stytchUserId,
+      id: account?.id || stytchUserId,
       email: userEmail,
-      name: user?.name || null,
+      name: null,
     });
   } catch {
     return c.json({ error: "Not authenticated" }, 401);

@@ -13,6 +13,7 @@ function optional(key: string, fallback: string): string {
 
 export const env = {
   PORT: parseInt(optional("PORT", "3001")),
+  DEV_BYPASS_AUTH: process.env.DEV_BYPASS_AUTH === "true",
 
   // Stytch (auth) — optional for local dev without auth
   STYTCH_PROJECT_ID: optional("STYTCH_PROJECT_ID", ""),
