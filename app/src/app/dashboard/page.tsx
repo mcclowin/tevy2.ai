@@ -4,13 +4,11 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  createAgent, listAgents, getBootStatus,
-  readAgentFile, deleteAgent, startAgent, stopAgent,
-  type Agent,
+  createAgent, listAgents, getBootStatus, getAgentRuntime, updateAgent,
+  readAgentFile, writeAgentFile, deleteAgent, startAgent, stopAgent,
+  type Agent, type AgentRuntime,
 } from "@/lib/api";
-import { signOut, isAuthenticated, getUser, getSessionToken } from "@/lib/auth";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+import { signOut, isAuthenticated, getUser } from "@/lib/auth";
 
 type OnboardingData = {
   addTelegram: boolean;
@@ -24,6 +22,31 @@ type OnboardingData = {
   twitter: string;
   facebook: string;
 };
+
+type BrandAsset = {
+  name: string;
+  path: string;
+  size: number;
+  type: string;
+  uploadedAt: string;
+};
+
+function sanitizeFileName(name: string): string {
+  return name.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-|-$/g, "") || "asset";
+}
+
+async function fileToBase64(file: File): Promise<string> {
+  const arrayBuffer = await file.arrayBuffer();
+  const bytes = new Uint8Array(arrayBuffer);
+  let binary = "";
+  const chunkSize = 0x8000;
+
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+
+  return btoa(binary);
+}
 
 const NAV_ITEMS = [
   { id: "home", icon: "🏠", label: "Home" },
@@ -438,11 +461,8 @@ function OnboardingPanel({ onComplete }: { onComplete: (agent: Agent) => void })
 
 /* ─── HOME TAB ─── */
 function HomeTab({ agentData, liveStatus }: { agentData: Agent | null; liveStatus: string }) {
-  const [chatOpen, setChatOpen] = useState(false);
-  const [chatInput, setChatInput] = useState("");
-
   return (
-    <div className="h-full flex flex-col relative">
+    <div className="h-full flex flex-col">
       <div className="flex-1 overflow-auto p-8 max-w-4xl">
         <h1 className="text-2xl font-bold mb-1">Dashboard</h1>
         <p className="text-[var(--muted)] mb-8">{
@@ -477,7 +497,7 @@ function HomeTab({ agentData, liveStatus }: { agentData: Agent | null; liveStatu
           <div className="glass rounded-xl p-4">
             <div className="text-xs text-[var(--muted)] mb-1">Chat Channel</div>
             <div className="text-lg font-bold">
-              {(agentData?.config as Record<string, unknown>)?.telegramBotToken ? "Telegram" : "Webchat"}
+              {(agentData?.config as Record<string, unknown>)?.telegramBotToken ? "Telegram" : "Not configured"}
             </div>
           </div>
           <div className="glass rounded-xl p-4">
@@ -491,15 +511,28 @@ function HomeTab({ agentData, liveStatus }: { agentData: Agent | null; liveStatu
         <div className="glass rounded-xl p-6 mb-6">
           <h3 className="font-semibold mb-3">Get started</h3>
           <p className="text-sm text-[var(--muted)] mb-4">
-            Message your agent on Telegram or use the chat below. Try these:
+            Use Telegram to work with your agent. Good first prompts:
           </p>
           <div className="flex gap-2 flex-wrap">
             {["Analyze my website", "Draft 3 social posts", "Research my competitors", "Run an SEO audit", "Create a content calendar"].map((s) => (
-              <button key={s} onClick={() => { setChatOpen(true); setChatInput(s); }}
-                className="px-3 py-1.5 rounded-full text-xs bg-[var(--surface-light)] text-[var(--muted)] hover:text-white hover:bg-[var(--surface)] border border-[var(--border)] transition-colors">
+              <span key={s}
+                className="px-3 py-1.5 rounded-full text-xs bg-[var(--surface-light)] text-[var(--muted)] border border-[var(--border)]">
                 {s}
-              </button>
+              </span>
             ))}
+          </div>
+        </div>
+
+        <div className="glass rounded-xl p-6 mb-6">
+          <h3 className="font-semibold mb-3">Channel</h3>
+          <div className="text-center py-10 border border-dashed border-[var(--border)] rounded-xl">
+            <div className="text-3xl mb-3">✈️</div>
+            <p className="text-sm text-[var(--muted)] mb-2">
+              Dashboard chat is disabled for now.
+            </p>
+            <p className="text-xs text-[var(--muted)]">
+              Use your Telegram bot as the primary way to chat with the agent.
+            </p>
           </div>
         </div>
 
@@ -512,58 +545,110 @@ function HomeTab({ agentData, liveStatus }: { agentData: Agent | null; liveStatu
           </div>
         </div>
       </div>
-
-      {/* Chat widget */}
-      {chatOpen ? (
-        <div className="absolute bottom-4 right-4 w-96 h-[28rem] glass rounded-xl border border-[var(--border)] flex flex-col shadow-2xl overflow-hidden" style={{ zIndex: 50 }}>
-          <div className="px-4 py-3 border-b border-[var(--border)] flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-green-500"></div>
-              <span className="text-sm font-semibold">Agent</span>
-            </div>
-            <button onClick={() => setChatOpen(false)} className="text-[var(--muted)] hover:text-white text-lg">✕</button>
-          </div>
-          <div className="flex-1 overflow-auto p-4">
-            <div className="text-center py-8">
-              <div className="text-2xl mb-2">💬</div>
-              <p className="text-sm text-[var(--muted)]">Webchat integration coming soon.</p>
-              <p className="text-xs text-[var(--muted)] mt-2">For now, use your Telegram bot.</p>
-            </div>
-          </div>
-          <div className="px-3 py-3 border-t border-[var(--border)] shrink-0">
-            <div className="flex gap-2">
-              <input className="input-field !py-2 text-sm flex-1" placeholder="Message..." value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)} />
-              <button className="px-3 py-2 rounded-lg bg-[var(--accent)] text-white text-sm hover:opacity-90 transition-opacity">→</button>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <button onClick={() => setChatOpen(true)}
-          className="absolute bottom-6 right-6 w-14 h-14 rounded-full bg-[var(--accent)] text-white text-xl flex items-center justify-center shadow-lg hover:scale-105 transition-transform"
-          style={{ zIndex: 50 }}>💬</button>
-      )}
     </div>
   );
 }
 
 /* ─── BRAND TAB ─── */
 function BrandTab({ agentData }: { agentData: Agent | null }) {
-  const [brandContent, setBrandContent] = useState<string | null>(null);
-  const [analyzing, setAnalyzing] = useState(false);
+  const [brandContent, setBrandContent] = useState("");
+  const [assets, setAssets] = useState<BrandAsset[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (agentData?.id) {
-      readAgentFile(agentData.id, "memory/brand-profile.md")
-        .then((res) => { if (res.content) setBrandContent(res.content); })
-        .catch(() => {});
+    if (!agentData?.id) return;
+    const agentId = agentData.id;
+
+    async function loadBrandWorkspace() {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const [profile, assetIndex] = await Promise.all([
+          readAgentFile(agentId, "memory/brand-profile.md").catch(() => ({ content: "" })),
+          readAgentFile(agentId, "brand-assets/index.json").catch(() => ({ content: "" })),
+        ]);
+
+        setBrandContent(profile.content || "");
+
+        if (assetIndex.content) {
+          const parsed = JSON.parse(assetIndex.content) as { assets?: BrandAsset[] };
+          setAssets(Array.isArray(parsed.assets) ? parsed.assets : []);
+        } else {
+          setAssets([]);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load brand workspace");
+      } finally {
+        setLoading(false);
+      }
     }
+
+    void loadBrandWorkspace();
   }, [agentData?.id]);
+
+  const saveBrandProfile = async () => {
+    if (!agentData?.id) return;
+    setSaving(true);
+    setMessage(null);
+    setError(null);
+
+    try {
+      await writeAgentFile(agentData.id, "memory/brand-profile.md", brandContent);
+      setMessage("Brand profile saved.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save brand profile");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAssetUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!agentData?.id || !event.target.files?.length) return;
+
+    setUploading(true);
+    setMessage(null);
+    setError(null);
+
+    try {
+      const nextAssets = [...assets];
+
+      for (const file of Array.from(event.target.files)) {
+        const uploadedAt = new Date().toISOString();
+        const safeName = `${Date.now()}-${sanitizeFileName(file.name)}`;
+        const path = `brand-assets/${safeName}`;
+        const base64 = await fileToBase64(file);
+
+        await writeAgentFile(agentData.id, path, base64, "base64");
+
+        nextAssets.unshift({
+          name: file.name,
+          path,
+          size: file.size,
+          type: file.type || "application/octet-stream",
+          uploadedAt,
+        });
+      }
+
+      setAssets(nextAssets);
+      await writeAgentFile(agentData.id, "brand-assets/index.json", JSON.stringify({ assets: nextAssets }, null, 2));
+      setMessage("Brand assets uploaded.");
+      event.target.value = "";
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to upload brand assets");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   return (
     <div className="p-8 max-w-4xl">
       <h1 className="text-2xl font-bold mb-1">Brand Profile</h1>
-      <p className="text-[var(--muted)] mb-6">Your brand info and AI-generated analysis</p>
+      <p className="text-[var(--muted)] mb-6">Edit your brand profile and upload source assets for future brand analysis.</p>
 
       <div className="glass rounded-xl p-6 mb-6">
         <h3 className="font-semibold mb-4">📝 Business Details</h3>
@@ -587,21 +672,69 @@ function BrandTab({ agentData }: { agentData: Agent | null }) {
         </div>
       </div>
 
-      <div className="glass rounded-xl p-6">
-        <h3 className="font-semibold mb-4">🎯 Brand Analysis</h3>
-        {brandContent ? (
-          <pre className="whitespace-pre-wrap text-sm text-[var(--muted)] bg-[var(--surface-light)] rounded-lg p-4 overflow-auto">
-            {brandContent}
-          </pre>
+      <div className="glass rounded-xl p-6 mb-6">
+        <div className="flex items-center justify-between gap-4 mb-4">
+          <div>
+            <h3 className="font-semibold">🎯 Brand Profile</h3>
+            <p className="text-sm text-[var(--muted)]">Stored on the agent at `memory/brand-profile.md`.</p>
+          </div>
+          <button
+            onClick={saveBrandProfile}
+            disabled={saving || loading}
+            className="px-3 py-1.5 rounded-lg text-xs bg-[var(--accent)] text-white hover:opacity-90 transition-opacity disabled:opacity-40"
+          >
+            {saving ? "Saving..." : "Save profile"}
+          </button>
+        </div>
+
+        {loading ? (
+          <p className="text-sm text-[var(--muted)]">Loading brand profile...</p>
         ) : (
-          <div className="text-center py-8">
-            <div className="text-3xl mb-3">🔍</div>
-            <p className="text-sm text-[var(--muted)]">
-              Ask your agent to analyze your brand via Telegram:
-            </p>
-            <p className="text-xs text-[var(--muted)] font-mono mt-2">
-              &quot;Analyze my website and create a brand profile&quot;
-            </p>
+          <textarea
+            value={brandContent}
+            onChange={(e) => setBrandContent(e.target.value)}
+            className="w-full min-h-[24rem] bg-[var(--surface-light)] border border-[var(--border)] rounded-xl p-4 text-sm text-[var(--foreground)] focus:outline-none focus:border-[var(--accent)]"
+            placeholder="Describe the brand voice, audience, positioning, visuals, colors, constraints, examples, and brand rules..."
+          />
+        )}
+
+        {message && <p className="text-xs text-green-400 mt-3">{message}</p>}
+        {error && <p className="text-xs text-red-400 mt-3">{error}</p>}
+      </div>
+
+      <div className="glass rounded-xl p-6">
+        <h3 className="font-semibold mb-2">📎 Brand Assets</h3>
+        <p className="text-sm text-[var(--muted)] mb-4">
+          Upload logos, screenshots, PDFs, brand decks, packaging shots, and other source material into the agent workspace.
+        </p>
+
+        <label className="upload-zone rounded-xl p-6 border border-dashed border-[var(--border)] block cursor-pointer mb-4">
+          <input type="file" multiple className="hidden" onChange={handleAssetUpload} />
+          <div className="text-center">
+            <div className="text-3xl mb-2">⬆️</div>
+            <p className="text-sm">{uploading ? "Uploading..." : "Upload brand files"}</p>
+            <p className="text-xs text-[var(--muted)] mt-1">Files are stored under `brand-assets/` on the agent.</p>
+          </div>
+        </label>
+
+        {assets.length > 0 ? (
+          <div className="space-y-2">
+            {assets.map((asset) => (
+              <div key={`${asset.path}-${asset.uploadedAt}`} className="flex items-center justify-between gap-3 rounded-lg bg-[var(--surface-light)] px-3 py-2 text-sm">
+                <div className="min-w-0">
+                  <div className="truncate">{asset.name}</div>
+                  <div className="text-xs text-[var(--muted)] font-mono truncate">{asset.path}</div>
+                </div>
+                <div className="text-xs text-[var(--muted)] shrink-0">
+                  {(asset.size / 1024).toFixed(1)} KB
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-6">
+            <div className="text-2xl mb-2">🗂️</div>
+            <p className="text-sm text-[var(--muted)]">No brand assets uploaded yet.</p>
           </div>
         )}
       </div>
@@ -708,6 +841,29 @@ function SettingsTab({ agentData, liveStatus, setLiveStatus, setHasAgent }: {
 }) {
   const [deleting, setDeleting] = useState(false);
   const [restarting, setRestarting] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const [runtime, setRuntime] = useState<AgentRuntime | null>(null);
+  const [runtimeLoading, setRuntimeLoading] = useState(false);
+  const [runtimeError, setRuntimeError] = useState<string | null>(null);
+  const [updateMessage, setUpdateMessage] = useState<string | null>(null);
+
+  const refreshRuntime = useCallback(async () => {
+    if (!agentData?.id) return;
+    setRuntimeLoading(true);
+    try {
+      const nextRuntime = await getAgentRuntime(agentData.id);
+      setRuntime(nextRuntime);
+      setRuntimeError(null);
+    } catch (err) {
+      setRuntimeError(err instanceof Error ? err.message : "Could not load runtime info");
+    } finally {
+      setRuntimeLoading(false);
+    }
+  }, [agentData?.id]);
+
+  useEffect(() => {
+    refreshRuntime();
+  }, [refreshRuntime]);
 
   const handleDelete = async () => {
     if (!agentData?.id) return;
@@ -732,10 +888,30 @@ function SettingsTab({ agentData, liveStatus, setLiveStatus, setHasAgent }: {
       await new Promise((r) => setTimeout(r, 3000));
       await startAgent(agentData.id);
       setLiveStatus("running");
+      setUpdateMessage("Agent restarted. Refreshing runtime info...");
+      setTimeout(() => { void refreshRuntime(); }, 1500);
       setRestarting(false);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Restart failed");
       setRestarting(false);
+    }
+  };
+
+  const handleUpdate = async () => {
+    if (!agentData?.id) return;
+    setUpdating(true);
+    setUpdateMessage(null);
+    try {
+      const result = await updateAgent(agentData.id);
+      setRuntime(result.runtime);
+      setRuntimeError(null);
+      setUpdateMessage(
+        `Update complete. OpenClaw ${result.runtime.openclawVersion || "unknown"} · image ${result.runtime.imageRevision || "unknown"}`
+      );
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Update failed");
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -760,10 +936,44 @@ function SettingsTab({ agentData, liveStatus, setLiveStatus, setHasAgent }: {
               </span>
             </div>
           </div>
+          <div className="grid grid-cols-2 gap-4 text-xs mb-4">
+            <div>
+              <div className="text-[var(--muted)] mb-1">OpenClaw version</div>
+              <div className="font-mono">{runtimeLoading ? "Loading..." : runtime?.openclawVersion || "Unavailable"}</div>
+            </div>
+            <div>
+              <div className="text-[var(--muted)] mb-1">Image revision</div>
+              <div className="font-mono">{runtimeLoading ? "Loading..." : runtime?.imageRevision || "Unavailable"}</div>
+            </div>
+            <div>
+              <div className="text-[var(--muted)] mb-1">Gateway</div>
+              <div className="font-mono">{runtimeLoading ? "Loading..." : runtime?.gatewayStatus || "Unknown"}</div>
+            </div>
+            <div>
+              <div className="text-[var(--muted)] mb-1">Update script</div>
+              <div className="font-mono">
+                {runtimeLoading ? "Loading..." : runtime?.updateScriptPresent ? "Present" : "Missing"}
+              </div>
+            </div>
+          </div>
+          {runtimeError && (
+            <p className="text-xs text-red-400 mb-3">{runtimeError}</p>
+          )}
+          {updateMessage && (
+            <p className="text-xs text-green-400 mb-3">{updateMessage}</p>
+          )}
           <div className="flex gap-2">
+            <button onClick={handleUpdate} disabled={updating || !agentData?.id || liveStatus !== "running"}
+              className="px-3 py-1.5 rounded-lg text-xs bg-[var(--accent)] text-white hover:opacity-90 transition-opacity disabled:opacity-40">
+              {updating ? "Updating..." : "Update image"}
+            </button>
             <button onClick={handleRestart} disabled={restarting || !agentData?.id}
               className="px-3 py-1.5 rounded-lg text-xs bg-[var(--surface-light)] text-[var(--muted)] hover:text-white transition-colors disabled:opacity-40">
               {restarting ? "Restarting..." : "Restart agent"}
+            </button>
+            <button onClick={() => { void refreshRuntime(); }} disabled={runtimeLoading || !agentData?.id}
+              className="px-3 py-1.5 rounded-lg text-xs bg-[var(--surface-light)] text-[var(--muted)] hover:text-white transition-colors disabled:opacity-40">
+              {runtimeLoading ? "Refreshing..." : "Refresh status"}
             </button>
             <button onClick={handleDelete} disabled={deleting || !agentData?.id}
               className="px-3 py-1.5 rounded-lg text-xs bg-[var(--surface-light)] text-red-400/60 hover:text-red-400 transition-colors disabled:opacity-40">
@@ -793,21 +1003,6 @@ function SettingsTab({ agentData, liveStatus, setLiveStatus, setHasAgent }: {
           </span>
         </div>
       </div>
-
-      {/* Control UI link */}
-      {agentData?.hetzner_ip && (
-        <div className="mb-8">
-          <h3 className="text-sm font-semibold text-[var(--muted)] uppercase tracking-wide mb-3">Advanced</h3>
-          <div className="glass rounded-xl p-5">
-            <div className="font-semibold text-sm mb-1">OpenClaw Control UI</div>
-            <p className="text-xs text-[var(--muted)] mb-3">Direct access to your agent&apos;s OpenClaw interface</p>
-            <a href={`http://${agentData.hetzner_ip}:18789`} target="_blank" rel="noopener noreferrer"
-              className="px-3 py-1.5 rounded-lg text-xs bg-[var(--surface-light)] text-[var(--accent-light)] hover:text-white transition-colors inline-block">
-              Open Control UI →
-            </a>
-          </div>
-        </div>
-      )}
 
       {/* Account */}
       <div>

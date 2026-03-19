@@ -29,7 +29,7 @@ export async function createMachine(opts: {
 }): Promise<HetznerMachine> {
   const script = cloudInit.buildProvisionScript(opts.customerConfig);
 
-  const { server, action } = await hetzner.createServer({
+  const { server } = await hetzner.createServer({
     name: opts.name,
     cloudInit: script,
     labels: {
@@ -38,19 +38,13 @@ export async function createMachine(opts: {
     },
   });
 
-  // Wait for server to be running (usually 10-30s)
-  await hetzner.waitForAction(action.id, 120_000);
-
-  // Re-fetch to get the IP (might not be available immediately)
-  const updated = await hetzner.getServer(server.id);
-
   return {
-    id: String(updated.id),
-    name: updated.name,
-    state: updated.status,
-    ip: updated.public_net.ipv4.ip,
-    region: updated.datacenter?.location?.name || env.HETZNER_LOCATION,
-    created_at: updated.created,
+    id: String(server.id),
+    name: server.name,
+    state: server.status,
+    ip: server.public_net.ipv4.ip,
+    region: server.datacenter?.location?.name || env.HETZNER_LOCATION,
+    created_at: server.created,
   };
 }
 

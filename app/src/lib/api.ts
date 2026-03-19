@@ -57,6 +57,7 @@ export type Agent = {
   slug: string;
   state: string;
   liveStatus?: string;
+  gateway_token?: string | null;
   hetzner_server_id: string;
   hetzner_ip: string;
   business_name: string;
@@ -65,6 +66,15 @@ export type Agent = {
   config: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+};
+
+export type AgentRuntime = {
+  machineState: string;
+  sshReachable: boolean;
+  gatewayStatus: string;
+  openclawVersion: string | null;
+  imageRevision: string | null;
+  updateScriptPresent: boolean;
 };
 
 export function createAgent(data: Record<string, unknown>) {
@@ -82,6 +92,10 @@ export function getAgent(id: string) {
   return api<Agent>(`/api/agents/${id}`);
 }
 
+export function getAgentRuntime(id: string) {
+  return api<AgentRuntime>(`/api/agents/${id}/runtime`);
+}
+
 export function startAgent(id: string) {
   return api<{ success: boolean; state: string }>(`/api/agents/${id}/start`, {
     method: "POST",
@@ -96,6 +110,12 @@ export function stopAgent(id: string) {
 
 export function deleteAgent(id: string) {
   return api<{ success: boolean }>(`/api/agents/${id}`, { method: "DELETE" });
+}
+
+export function updateAgent(id: string) {
+  return api<{ success: boolean; output: string; runtime: AgentRuntime }>(`/api/agents/${id}/update`, {
+    method: "POST",
+  });
 }
 
 export function backupAgent(id: string) {
@@ -120,10 +140,15 @@ export function readAgentFile(id: string, filePath: string) {
   );
 }
 
-export function writeAgentFile(id: string, filePath: string, content: string) {
+export function writeAgentFile(
+  id: string,
+  filePath: string,
+  content: string,
+  encoding: "utf8" | "base64" = "utf8"
+) {
   return api<{ success: boolean; path: string }>(
     `/api/agents/${id}/files/${filePath}`,
-    { method: "PUT", body: { content } }
+    { method: "PUT", body: { content, encoding } }
   );
 }
 

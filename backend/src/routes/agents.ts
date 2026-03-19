@@ -7,7 +7,9 @@
  * DELETE /api/agents/:id       → Backup + delete agent VPS
  * POST   /api/agents/:id/start → Power on
  * POST   /api/agents/:id/stop  → Shutdown
+ * POST   /api/agents/:id/update → Update agent image via SSH
  * POST   /api/agents/:id/backup → Create backup
+ * GET    /api/agents/:id/runtime → Runtime/version info
  * GET    /api/agents/:id/files/* → Read workspace file via SSH
  * PUT    /api/agents/:id/files/* → Write workspace file via SSH
  * POST   /api/agents/:id/ssh   → Execute command via SSH
@@ -45,6 +47,70 @@ function slugify(name: string): string {
 
 function webchatUrl(slug: string): string {
   return `https://${slug}.${env.HETZNER_AGENT_DOMAIN}`;
+}
+
+type RuntimeAgentRow = {
+  id: string;
+  slug: string;
+  hetzner_ip: string | null;
+  hetzner_server_id: string;
+};
+
+async function resolveAgentConnection(agent: RuntimeAgentRow) {
+  const machine = await hetznerInfra.getMachine(agent.hetzner_server_id);
+  const ip = agent.hetzner_ip || machine.ip;
+
+  if (ip && ip !== agent.hetzner_ip) {
+    await supabase
+      .from("agents")
+      .update({ hetzner_ip: ip, updated_at: new Date().toISOString() })
+      .eq("id", agent.id);
+  }
+
+  return { machine, ip };
+}
+
+async function getRuntimeInfo(agent: RuntimeAgentRow) {
+  const { machine, ip } = await resolveAgentConnection(agent);
+
+  if (machine.state !== "running") {
+    return {
+      machineState: machine.state,
+      sshReachable: false,
+      gatewayStatus: machine.state,
+      openclawVersion: null,
+      imageRevision: null,
+      updateScriptPresent: false,
+    };
+  }
+
+  const reachable = await ssh.ping(ip);
+  if (!reachable) {
+    return {
+      machineState: machine.state,
+      sshReachable: false,
+      gatewayStatus: "unreachable",
+      openclawVersion: null,
+      imageRevision: null,
+      updateScriptPresent: false,
+    };
+  }
+
+  const [gatewayStatus, openclawVersion, imageRevision, updateScriptPresent] = await Promise.all([
+    ssh.gatewayStatus(ip),
+    ssh.getOpenClawVersion(ip),
+    ssh.getImageRevision(ip),
+    ssh.hasUpdateScript(ip),
+  ]);
+
+  return {
+    machineState: machine.state,
+    sshReachable: true,
+    gatewayStatus,
+    openclawVersion,
+    imageRevision,
+    updateScriptPresent,
+  };
 }
 
 // ── POST /api/agents — provision a new agent VPS ───────────────────────
@@ -142,7 +208,14 @@ agents.post("/", async (c) => {
       .select()
       .single();
 
-    if (dbError) throw dbError;
+    if (dbError) {
+      try {
+        await hetznerInfra.deleteMachine(machine.id);
+      } catch (cleanupErr) {
+        console.error(`Failed to clean up Hetzner server ${machine.id} after DB insert error:`, cleanupErr);
+      }
+      throw dbError;
+    }
 
     return c.json({
       success: true,
@@ -281,6 +354,72 @@ agents.post("/:id/stop", async (c) => {
   }
 });
 
+// ── GET /api/agents/:id/runtime ────────────────────────────────────────
+
+agents.get("/:id/runtime", async (c) => {
+  const accountId = c.get("accountId");
+  const agentId = c.req.param("id");
+
+  const { data, error } = await supabase
+    .from("agents")
+    .select("id, slug, hetzner_ip, hetzner_server_id")
+    .eq("id", agentId)
+    .eq("account_id", accountId)
+    .single<RuntimeAgentRow>();
+
+  if (error || !data) return c.json({ error: "Agent not found" }, 404);
+
+  try {
+    return c.json(await getRuntimeInfo(data));
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Runtime check failed";
+    return c.json({ error: msg }, 500);
+  }
+});
+
+// ── POST /api/agents/:id/update ────────────────────────────────────────
+
+agents.post("/:id/update", async (c) => {
+  const accountId = c.get("accountId");
+  const agentId = c.req.param("id");
+
+  const { data, error } = await supabase
+    .from("agents")
+    .select("id, slug, hetzner_ip, hetzner_server_id")
+    .eq("id", agentId)
+    .eq("account_id", accountId)
+    .single<RuntimeAgentRow>();
+
+  if (error || !data) return c.json({ error: "Agent not found" }, 404);
+
+  try {
+    const runtime = await getRuntimeInfo(data);
+    if (runtime.machineState !== "running") {
+      return c.json({ error: `Agent must be running to update (currently ${runtime.machineState})` }, 409);
+    }
+    if (!runtime.sshReachable) {
+      return c.json({ error: "Agent is not reachable over SSH yet" }, 409);
+    }
+    if (!runtime.updateScriptPresent) {
+      return c.json({ error: "Update script is missing on this agent" }, 409);
+    }
+
+    const { ip } = await resolveAgentConnection(data);
+    const output = await ssh.runUpdate(ip);
+    const refreshed = await getRuntimeInfo({ ...data, hetzner_ip: ip });
+
+    await supabase
+      .from("agents")
+      .update({ updated_at: new Date().toISOString() })
+      .eq("id", agentId);
+
+    return c.json({ success: true, output, runtime: refreshed });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Update failed";
+    return c.json({ error: msg }, 500);
+  }
+});
+
 // ── DELETE /api/agents/:id ─────────────────────────────────────────────
 
 agents.delete("/:id", async (c) => {
@@ -386,7 +525,7 @@ agents.put("/:id/files/*", async (c) => {
     return c.json({ error: "Invalid path" }, 400);
   }
 
-  const { content } = await c.req.json<{ content: string }>();
+  const { content, encoding } = await c.req.json<{ content: string; encoding?: "utf8" | "base64" }>();
   if (content === undefined) return c.json({ error: "content required" }, 400);
 
   const { data, error } = await supabase
@@ -399,7 +538,7 @@ agents.put("/:id/files/*", async (c) => {
   if (error || !data?.hetzner_ip) return c.json({ error: "Agent not found" }, 404);
 
   try {
-    await ssh.writeFile(data.hetzner_ip, filePath, content);
+    await ssh.writeFileEncoded(data.hetzner_ip, filePath, content, encoding || "utf8");
     return c.json({ success: true, path: filePath });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Write failed";

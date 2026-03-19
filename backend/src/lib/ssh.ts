@@ -75,13 +75,25 @@ export async function readFile(ip: string, path: string): Promise<string> {
  * Write a file to the agent's workspace.
  */
 export async function writeFile(ip: string, path: string, content: string): Promise<void> {
+  return writeFileEncoded(ip, path, content, "utf8");
+}
+
+/**
+ * Write a file to the agent's workspace using utf8 text or base64 bytes.
+ */
+export async function writeFileEncoded(
+  ip: string,
+  path: string,
+  content: string,
+  encoding: "utf8" | "base64" = "utf8"
+): Promise<void> {
   if (path.includes("..") || path.startsWith("/")) {
     throw new Error("Invalid file path");
   }
   const fullPath = `/home/agent/.openclaw/workspace/${path}`;
   // Ensure parent directory exists
   const dir = fullPath.substring(0, fullPath.lastIndexOf("/"));
-  const b64 = Buffer.from(content).toString("base64");
+  const b64 = encoding === "base64" ? content : Buffer.from(content).toString("base64");
   const cmd = `mkdir -p ${JSON.stringify(dir)} && echo ${JSON.stringify(b64)} | base64 -d > ${JSON.stringify(fullPath)}`;
   const result = await exec(ip, cmd);
   if (result.exitCode !== 0) {
@@ -132,7 +144,7 @@ export async function gatewayLogs(ip: string, lines = 50): Promise<string> {
  * Run the update script (git pull + openclaw update + restart).
  */
 export async function runUpdate(ip: string): Promise<string> {
-  const result = await exec(ip, "sudo bash /opt/tevy/update.sh", { user: "agent", timeoutMs: 120_000 });
+  const result = await exec(ip, "sudo bash /opt/tevy/update.sh", { user: "agent", timeoutMs: 300_000 });
   return result.stdout + result.stderr;
 }
 
@@ -179,4 +191,20 @@ export async function installSkill(ip: string, skillName: string): Promise<strin
 export async function getOpenClawVersion(ip: string): Promise<string> {
   const result = await exec(ip, "openclaw --version 2>/dev/null || echo unknown");
   return result.stdout.trim();
+}
+
+/**
+ * Get the current tevy image repo revision on the VPS.
+ */
+export async function getImageRevision(ip: string): Promise<string> {
+  const result = await exec(ip, "git -C /opt/tevy rev-parse --short HEAD 2>/dev/null || echo unknown");
+  return result.stdout.trim();
+}
+
+/**
+ * Check whether the update script exists on the VPS.
+ */
+export async function hasUpdateScript(ip: string): Promise<boolean> {
+  const result = await exec(ip, "[ -f /opt/tevy/update.sh ] && echo yes || echo no");
+  return result.stdout.trim() === "yes";
 }
