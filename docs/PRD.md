@@ -142,6 +142,66 @@ The agent image is responsible for shipping the shared Tevy system layer on ever
 
 The image should treat `/opt/tevy` as the managed system layer and `/home/agent/.openclaw` as the customer-owned workspace layer.
 
+### Browser Support — Social Platform Access
+
+Each agent VPS must ship with headless browser capabilities for traversing and interacting with social platforms where API access is limited or unavailable.
+
+**Why this matters:**
+- X.com (Twitter), LinkedIn, and Instagram restrict or paywall their APIs
+- X.com's API requires paid credits ($100/mo minimum for useful access)
+- LinkedIn has no public content API — scraping is the only option for competitor monitoring
+- Instagram's Graph API only covers the customer's own accounts, not competitors
+- Real marketing intelligence requires reading public feeds, trending topics, and competitor profiles
+
+**Base image must include:**
+- Chromium/Chrome headless (pre-installed on the snapshot)
+- Puppeteer or Playwright (npm dependency in the agent image)
+- Xvfb (virtual framebuffer for non-headless fallback when sites detect headless mode)
+
+**Platform-specific capabilities:**
+
+| Platform | Read (public) | Write (post) | Auth method |
+|----------|--------------|-------------|-------------|
+| X.com | ✅ Headless browser | ✅ Puppeteer (bypasses 226 anti-automation) | Cookie-based (AUTH_TOKEN + CT0) |
+| LinkedIn | ✅ Headless browser | ❌ Not supported (ToS risk) | Cookie-based or logged-out public |
+| Instagram | ✅ Headless browser (public profiles) | ❌ Use Graph API for own account | Logged-out for public, Graph API for owned |
+
+**Read operations (competitive intelligence):**
+- Scrape competitor profiles, posts, engagement metrics
+- Monitor trending topics and hashtags
+- Track follower growth and posting cadence
+- Screenshot competitor content for analysis
+
+**Write operations (content publishing):**
+- X.com: Post tweets/threads via Puppeteer (proven method — see `scripts/x-thread-puppeteer.js`)
+- LinkedIn: Use official API or manual posting (browser automation for posting is ToS-risky)
+- Instagram: Use Graph API for the customer's own account only
+
+**Cookie/credential management:**
+- Social platform cookies (X.com AUTH_TOKEN, LinkedIn li_at) are Layer 3 (customer-provided)
+- Stored in the agent's encrypted config, not in shared keys
+- Cookies expire periodically — agent should detect auth failures and prompt the customer to refresh
+- The agent must never store or transmit social credentials to the platform backend
+
+**Skill integration:**
+- A `browser-social` skill should wrap common operations: read feed, search hashtag, get profile, screenshot post
+- The skill handles Xvfb lifecycle, cookie injection, and anti-detection (user agent, viewport, timing)
+- Competitive intelligence skills should call `browser-social` for data collection
+
+**Snapshot requirements:**
+- `chromium-browser` or `google-chrome-stable` apt package
+- `xvfb` apt package
+- `puppeteer` or `playwright` as global npm package (with browser binaries downloaded)
+- `/usr/bin/xvfb-run` available for the agent user
+- Sufficient disk space for browser cache (~500MB)
+
+**Anti-detection considerations:**
+- Use realistic viewport sizes (1920×1080)
+- Randomize timing between actions (2-5s delays)
+- Rotate user-agent strings
+- Respect rate limits — no more than 100 page loads per hour per platform
+- Do not attempt to bypass login walls for platforms where the customer hasn't provided credentials
+
 ### Decision Log
 
 Each agent should maintain a durable decision log inside the customer workspace.
