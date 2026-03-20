@@ -209,12 +209,13 @@ agents.post("/", async (c) => {
       .single();
 
     if (dbError) {
+      console.error("Supabase insert error:", JSON.stringify(dbError, null, 2));
       try {
         await hetznerInfra.deleteMachine(machine.id);
       } catch (cleanupErr) {
         console.error(`Failed to clean up Hetzner server ${machine.id} after DB insert error:`, cleanupErr);
       }
-      throw dbError;
+      return c.json({ error: "Database insert failed", details: dbError.message || JSON.stringify(dbError) }, 500);
     }
 
     return c.json({
@@ -229,10 +230,12 @@ agents.post("/", async (c) => {
       },
     });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "Provisioning failed";
+    const msg = err instanceof Error ? err.message : JSON.stringify(err, null, 2);
     console.error("Agent creation failed:", msg);
     if (err instanceof Error && err.stack) {
       console.error("Stack:", err.stack);
+    } else {
+      console.error("Raw error object:", err);
     }
     return c.json({ error: "Failed to provision agent", details: msg }, 500);
   }
