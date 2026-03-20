@@ -785,7 +785,6 @@ function BrandTab({ agentData }: { agentData: Agent | null }) {
     postingGoal: "",
   });
   const [socialAccounts, setSocialAccounts] = useState<SocialAccount[]>([]);
-  const [showAddAccount, setShowAddAccount] = useState(false);
   const [newPlatform, setNewPlatform] = useState(PLATFORM_OPTIONS[0]);
   const [newHandle, setNewHandle] = useState("");
   const [assets, setAssets] = useState<BrandAsset[]>([]);
@@ -909,9 +908,9 @@ function BrandTab({ agentData }: { agentData: Agent | null }) {
         </div>
       ) : (
         <>
-          {/* Business Details */}
+          {/* Project Info — factual details at the top */}
           <div className="glass rounded-xl p-6 mb-6">
-            <h3 className="font-semibold mb-4">📝 Business Details</h3>
+            <h3 className="font-semibold mb-4">📋 Project Info</h3>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -952,26 +951,6 @@ function BrandTab({ agentData }: { agentData: Agent | null }) {
                     onChange={(e) => setBrandForm((f) => ({ ...f, postingGoal: e.target.value }))}
                   />
                 </div>
-              </div>
-              <div>
-                <label className="text-xs text-[var(--muted)] mb-1 block">Brand Voice / Tone</label>
-                <textarea
-                  className="w-full bg-[var(--surface-light)] border border-[var(--border)] rounded-xl p-3 text-sm text-[var(--foreground)] focus:outline-none focus:border-[var(--accent)] resize-none"
-                  rows={3}
-                  placeholder="Professional but approachable, witty, concise..."
-                  value={brandForm.brandVoice}
-                  onChange={(e) => setBrandForm((f) => ({ ...f, brandVoice: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="text-xs text-[var(--muted)] mb-1 block">Target Audience</label>
-                <textarea
-                  className="w-full bg-[var(--surface-light)] border border-[var(--border)] rounded-xl p-3 text-sm text-[var(--foreground)] focus:outline-none focus:border-[var(--accent)] resize-none"
-                  rows={3}
-                  placeholder="Tech-savvy founders aged 25-40, early adopters..."
-                  value={brandForm.targetAudience}
-                  onChange={(e) => setBrandForm((f) => ({ ...f, targetAudience: e.target.value }))}
-                />
               </div>
             </div>
           </div>
@@ -1025,49 +1004,62 @@ function BrandTab({ agentData }: { agentData: Agent | null }) {
               </div>
             )}
 
-            {showAddAccount ? (
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-[var(--surface-light)] border border-[var(--border)]">
-                <select
-                  value={newPlatform}
-                  onChange={(e) => setNewPlatform(e.target.value)}
-                  className="bg-[var(--surface)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-sm text-[var(--foreground)] focus:outline-none focus:border-[var(--accent)]"
-                >
-                  {PLATFORM_OPTIONS.map((p) => (
-                    <option key={p} value={p}>{PLATFORM_ICONS[p]} {p}</option>
-                  ))}
-                </select>
-                <input
-                  className="input-field !py-1.5 text-sm flex-1"
-                  placeholder="@handle or URL"
-                  value={newHandle}
-                  onChange={(e) => setNewHandle(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") addSocialAccount(); }}
-                  autoFocus
-                />
-                <button
-                  onClick={addSocialAccount}
-                  className="px-3 py-1.5 rounded-lg text-xs bg-[var(--accent)] text-white hover:opacity-90 transition-opacity"
-                >
-                  Add
-                </button>
-                <button
-                  onClick={() => { setShowAddAccount(false); setNewHandle(""); }}
-                  className="px-3 py-1.5 rounded-lg text-xs bg-[var(--surface)] text-[var(--muted)] hover:text-white transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setShowAddAccount(true)}
-                className="w-full py-2.5 rounded-lg text-sm border border-dashed border-[var(--border)] text-[var(--muted)] hover:text-white hover:border-[var(--accent)] transition-colors"
+            <div className="flex items-center gap-2">
+              <select
+                value={newPlatform}
+                onChange={(e) => setNewPlatform(e.target.value)}
+                className="bg-[var(--surface)] border border-[var(--border)] rounded-lg px-2 py-2 text-sm text-[var(--foreground)] focus:outline-none focus:border-[var(--accent)]"
               >
-                + Add Account
+                {PLATFORM_OPTIONS.map((p) => (
+                  <option key={p} value={p}>{PLATFORM_ICONS[p]} {p}</option>
+                ))}
+              </select>
+              <input
+                className="input-field !py-2 text-sm flex-1"
+                placeholder="@handle or URL"
+                value={newHandle}
+                onChange={(e) => setNewHandle(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") addSocialAccount(); }}
+              />
+              <button
+                onClick={addSocialAccount}
+                disabled={!newHandle.trim()}
+                className="px-4 py-2 rounded-lg text-xs bg-[var(--accent)] text-white hover:opacity-90 transition-opacity disabled:opacity-40 whitespace-nowrap"
+              >
+                + Add
               </button>
-            )}
+            </div>
 
             {message && <p className="text-xs text-green-400 mt-3">{message}</p>}
             {error && <p className="text-xs text-red-400 mt-3">{error}</p>}
+          </div>
+
+          {/* Brand Voice & Audience — secondary, below socials */}
+          <div className="glass rounded-xl p-6 mb-6">
+            <h3 className="font-semibold mb-1">🎨 Brand Voice & Audience</h3>
+            <p className="text-xs text-[var(--muted)] mb-4">Optional — helps your bot write in your style.</p>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs text-[var(--muted)] mb-1 block">Brand Voice / Tone</label>
+                <textarea
+                  className="w-full bg-[var(--surface-light)] border border-[var(--border)] rounded-xl p-3 text-sm text-[var(--foreground)] focus:outline-none focus:border-[var(--accent)] resize-none"
+                  rows={2}
+                  placeholder="e.g. Professional but approachable, witty, concise..."
+                  value={brandForm.brandVoice}
+                  onChange={(e) => setBrandForm((f) => ({ ...f, brandVoice: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="text-xs text-[var(--muted)] mb-1 block">Target Audience</label>
+                <textarea
+                  className="w-full bg-[var(--surface-light)] border border-[var(--border)] rounded-xl p-3 text-sm text-[var(--foreground)] focus:outline-none focus:border-[var(--accent)] resize-none"
+                  rows={2}
+                  placeholder="e.g. Crypto investors, DeFi users on ICP/Stacks..."
+                  value={brandForm.targetAudience}
+                  onChange={(e) => setBrandForm((f) => ({ ...f, targetAudience: e.target.value }))}
+                />
+              </div>
+            </div>
           </div>
 
           {/* Brand Assets */}
@@ -1177,6 +1169,7 @@ function CalendarTab({ agentId }: { agentId: string }) {
 function MarketIntelTab({ agentId }: { agentId: string }) {
   const [competitors, setCompetitors] = useState<CompetitorEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [newCompetitor, setNewCompetitor] = useState("");
 
   useEffect(() => {
     if (!agentId) return;
@@ -1191,64 +1184,95 @@ function MarketIntelTab({ agentId }: { agentId: string }) {
       .finally(() => setLoading(false));
   }, [agentId]);
 
+  const addCompetitor = () => {
+    if (!newCompetitor.trim()) return;
+    setCompetitors((prev) => [...prev, { name: newCompetitor.trim(), website: "", description: "", differentiator: "" }]);
+    setNewCompetitor("");
+  };
+
+  const removeCompetitor = (index: number) => {
+    setCompetitors((prev) => prev.filter((_, i) => i !== index));
+  };
+
   return (
     <div className="p-8 max-w-4xl">
       <h1 className="text-2xl font-bold mb-1">Market Intel</h1>
-      <p className="text-[var(--muted)] mb-6">Competitor intelligence and market research</p>
+      <p className="text-[var(--muted)] mb-6">Tell your bot what to track. It will research and report back.</p>
 
       {loading ? (
         <div className="glass rounded-xl p-6 text-center">
           <div className="w-5 h-5 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-          <p className="text-sm text-[var(--muted)]">Loading intel...</p>
+          <p className="text-sm text-[var(--muted)]">Loading...</p>
         </div>
       ) : (
         <>
-          {/* Tracked Competitors */}
-          <div className="mb-8">
-            <h3 className="text-sm font-semibold text-[var(--muted)] uppercase tracking-wide mb-3">Tracked Competitors</h3>
-            {competitors.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Tracking List */}
+          <div className="glass rounded-xl p-6 mb-6">
+            <h3 className="font-semibold mb-1">🎯 Tracking List</h3>
+            <p className="text-xs text-[var(--muted)] mb-4">Competitors, accounts, and topics your bot monitors.</p>
+
+            {competitors.length > 0 && (
+              <div className="space-y-2 mb-4">
                 {competitors.map((comp, i) => (
-                  <div key={i} className="glass rounded-xl p-5">
-                    <div className="flex items-start justify-between mb-2">
-                      <h4 className="font-semibold text-sm">{comp.name}</h4>
-                      {comp.website && (
-                        <a
-                          href={comp.website.startsWith("http") ? comp.website : `https://${comp.website}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-[var(--accent-light)] hover:underline flex-shrink-0"
-                        >
-                          🔗 Website
-                        </a>
-                      )}
+                  <div key={i} className="flex items-center gap-3 rounded-lg bg-[var(--surface-light)] px-4 py-3">
+                    <span className="text-sm">🏢</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium">{comp.name}</div>
+                      {comp.website && <div className="text-xs text-[var(--muted)]">{comp.website}</div>}
                     </div>
                     {comp.description && (
-                      <p className="text-sm text-[var(--muted)] mb-2">{comp.description}</p>
+                      <span className="text-xs text-[var(--muted)] max-w-[200px] truncate hidden md:block">{comp.description}</span>
                     )}
-                    {comp.differentiator && (
-                      <div className="text-xs px-2 py-1 rounded bg-[var(--surface-light)] text-[var(--accent-light)] inline-block">
-                        ⚡ {comp.differentiator}
-                      </div>
-                    )}
+                    <button
+                      onClick={() => removeCompetitor(i)}
+                      className="text-red-400/60 hover:text-red-400 transition-colors text-sm ml-2"
+                    >
+                      ✕
+                    </button>
                   </div>
                 ))}
               </div>
-            ) : (
-              <div className="glass rounded-xl p-6 text-center">
-                <div className="text-3xl mb-2">🔍</div>
-                <p className="text-sm text-[var(--muted)]">No competitors tracked yet</p>
-              </div>
             )}
+
+            <div className="flex items-center gap-2">
+              <input
+                className="input-field !py-2 text-sm flex-1"
+                placeholder="Add a competitor name, handle, or URL..."
+                value={newCompetitor}
+                onChange={(e) => setNewCompetitor(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") addCompetitor(); }}
+              />
+              <button
+                onClick={addCompetitor}
+                disabled={!newCompetitor.trim()}
+                className="px-4 py-2 rounded-lg text-xs bg-[var(--accent)] text-white hover:opacity-90 transition-opacity disabled:opacity-40 whitespace-nowrap"
+              >
+                + Add
+              </button>
+            </div>
           </div>
 
-          {/* Research Reports */}
-          <div>
-            <h3 className="text-sm font-semibold text-[var(--muted)] uppercase tracking-wide mb-3">Research Reports</h3>
-            <div className="glass rounded-xl p-6 text-center">
-              <div className="text-3xl mb-2">📑</div>
-              <p className="text-sm text-[var(--muted)]">Ask your agent to research competitors</p>
-              <p className="text-xs text-[var(--muted)] mt-1">Reports will appear here once generated.</p>
+          {/* Reporting */}
+          <div className="glass rounded-xl p-6 mb-6">
+            <h3 className="font-semibold mb-1">📊 Reports</h3>
+            <p className="text-xs text-[var(--muted)] mb-4">Your bot runs competitor research and delivers reports via Telegram.</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-lg bg-[var(--surface-light)] p-3 text-center">
+                <p className="text-xs text-[var(--muted)] mb-1">Report frequency</p>
+                <p className="text-sm font-medium">Weekly</p>
+              </div>
+              <div className="rounded-lg bg-[var(--surface-light)] p-3 text-center">
+                <p className="text-xs text-[var(--muted)] mb-1">Last report</p>
+                <p className="text-sm font-medium text-[var(--muted)]">—</p>
+              </div>
+            </div>
+            <div className="mt-4 flex gap-2">
+              <span className="px-3 py-1.5 rounded-full text-xs bg-[var(--surface-light)] text-[var(--muted)] border border-[var(--border)]">
+                💬 &quot;Research my competitors&quot;
+              </span>
+              <span className="px-3 py-1.5 rounded-full text-xs bg-[var(--surface-light)] text-[var(--muted)] border border-[var(--border)]">
+                💬 &quot;What are competitors posting?&quot;
+              </span>
             </div>
           </div>
         </>
@@ -1418,24 +1442,93 @@ function SettingsTab({ agentData, liveStatus, setLiveStatus, setHasAgent }: {
         </div>
       </div>
 
-      {/* Connection info */}
+      {/* Chat Channels */}
       <div className="mb-8">
-        <h3 className="text-sm font-semibold text-[var(--muted)] uppercase tracking-wide mb-3">Connections</h3>
-        <div className="glass rounded-xl p-4 flex items-center gap-4 mb-2">
-          <div className="w-10 h-10 rounded-lg bg-[#2AABEE] flex items-center justify-center text-white text-xl">✈️</div>
-          <div className="flex-1">
-            <div className="font-semibold text-sm">Telegram</div>
-            <div className="text-xs text-[var(--muted)]">
-              {(agentData?.config as Record<string, unknown>)?.telegramBotToken ? "Connected" : "Not configured"}
+        <h3 className="text-sm font-semibold text-[var(--muted)] uppercase tracking-wide mb-3">Chat Channels</h3>
+        <p className="text-xs text-[var(--muted)] mb-3">This is how you talk to your bot. Connect a messaging app to chat with your marketing agent.</p>
+        <div className="glass rounded-xl divide-y divide-[var(--border)]">
+          {([
+            {
+              icon: "✈️",
+              name: "Telegram",
+              desc: "Chat with your bot from any device",
+              color: "#2AABEE",
+              connected: !!(agentData?.config as Record<string, unknown>)?.telegramBotToken,
+              popular: true,
+            },
+            {
+              icon: "📱",
+              name: "WhatsApp",
+              desc: "Use your existing WhatsApp — via WhatsApp Business API",
+              color: "#25D366",
+              connected: false,
+              popular: true,
+            },
+            {
+              icon: "🎮",
+              name: "Discord",
+              desc: "Add your bot to a Discord server",
+              color: "#5865F2",
+              connected: false,
+              popular: true,
+            },
+            {
+              icon: "💬",
+              name: "Slack",
+              desc: "Use your bot inside your Slack workspace",
+              color: "#4A154B",
+              connected: false,
+              popular: true,
+            },
+            {
+              icon: "💬",
+              name: "Signal",
+              desc: "Privacy-focused encrypted messaging",
+              color: "#3A76F0",
+              connected: false,
+              popular: false,
+            },
+            {
+              icon: "💬",
+              name: "iMessage",
+              desc: "Chat via Apple Messages (requires BlueBubbles)",
+              color: "#34C759",
+              connected: false,
+              popular: false,
+            },
+            {
+              icon: "💬",
+              name: "Matrix",
+              desc: "Decentralized, open-source messaging",
+              color: "#0DBD8B",
+              connected: false,
+              popular: false,
+            },
+          ]).map((ch) => (
+            <div key={ch.name} className="flex items-center gap-4 p-4">
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center text-white text-xl flex-shrink-0" style={{ backgroundColor: ch.color }}>
+                {ch.icon}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-sm flex items-center gap-2">
+                  {ch.name}
+                  {ch.popular && !ch.connected && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface-light)] text-[var(--muted)]">Popular</span>
+                  )}
+                </div>
+                <div className="text-xs text-[var(--muted)]">{ch.desc}</div>
+              </div>
+              {ch.connected ? (
+                <span className="px-2.5 py-1 rounded-full text-xs bg-[rgba(34,197,94,0.15)] text-green-400 border border-[rgba(34,197,94,0.3)] flex-shrink-0">
+                  🟢 Connected
+                </span>
+              ) : (
+                <button className="px-3 py-1.5 rounded-lg text-xs bg-[var(--surface-light)] text-[var(--muted)] hover:text-white border border-[var(--border)] transition-colors flex-shrink-0">
+                  Connect
+                </button>
+              )}
             </div>
-          </div>
-          <span className={`px-2.5 py-1 rounded-full text-xs ${
-            (agentData?.config as Record<string, unknown>)?.telegramBotToken
-              ? "bg-[rgba(34,197,94,0.15)] text-green-400 border border-[rgba(34,197,94,0.3)]"
-              : "bg-[var(--surface-light)] text-[var(--muted)]"
-          }`}>
-            {(agentData?.config as Record<string, unknown>)?.telegramBotToken ? "🟢 Connected" : "Not set"}
-          </span>
+          ))}
         </div>
       </div>
 
