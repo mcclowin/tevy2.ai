@@ -231,6 +231,9 @@ agents.post("/", async (c) => {
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Provisioning failed";
     console.error("Agent creation failed:", msg);
+    if (err instanceof Error && err.stack) {
+      console.error("Stack:", err.stack);
+    }
     return c.json({ error: "Failed to provision agent", details: msg }, 500);
   }
 });
