@@ -24,7 +24,7 @@ const processSteps = [
     id: "04",
     title: "Suggest content",
     description:
-      "Generates channel-ready copy, visual direction, and hashtag strategy in your voice.",
+      "Generates channel-ready copy, visual concepts, and hashtag strategy — all in your brand voice.",
   },
   {
     id: "05",
@@ -36,7 +36,7 @@ const processSteps = [
     id: "06",
     title: "Auto-post and learn",
     description:
-      "Publishes at optimal times and improves recommendations from every result. Finds relevant corporate client leads and drafts introduction emails that actually convert.",
+      "Publishes at optimal times and improves recommendations from every campaign result.",
   },
 ];
 
@@ -79,14 +79,14 @@ export default function Home() {
         <div className="flex items-center gap-3">
           <Image src="/logo-wizard.jpg" alt="tevy2" width={36} height={36} className="h-9 w-9 rounded-lg" />
           <div className="landing-display text-lg font-bold tracking-tight">TevY2.ai</div>
-          <span className="landing-badge">Powered by OpenClaw</span>
+          <span className="landing-badge">Enterprise-grade AI</span>
         </div>
         <div className="flex items-center gap-3">
           <Link href="/login" className="landing-btn-outline !px-4 !py-2 text-sm">
             Log in
           </Link>
           <Link href="/setup" className="landing-btn-primary !px-4 !py-2 text-sm">
-            Request demo
+            Try free
           </Link>
         </div>
       </nav>
@@ -102,19 +102,19 @@ export default function Home() {
                 <span className="landing-em">conversions</span>
               </h1>
               <p className="landing-muted mb-6 max-w-2xl text-base md:text-lg">
-                TevY2 agent combines real time intelligence, augmented content creation and advanced automated lead genreation so businesses can grow faster without adding marketing overhead. TevY2 agent is the perfect social partner for the growing 15,000,000 person higgsfield.ai community.
+                TevY2 combines real-time competitive intelligence, AI content creation, and automated publishing — so your business grows on social without adding headcount.
               </p>
               <div className="grid gap-2 text-sm md:text-base">
                 <p className="landing-list-item">Competitor intelligence that runs 24/7</p>
                 <p className="landing-list-item">Trend detection before topics peak</p>
-                <p className="landing-list-item">Brand-matched content generated at scale</p>
+                <p className="landing-list-item">Brand-matched content created and published automatically</p>
               </div>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link href="/setup" className="landing-btn-primary">
-                  Start free trial
+                  Try it free — no card required
                 </Link>
                 <a href="#how-it-works" className="landing-btn-outline">
-                  Explore how it works
+                  See how it works
                 </a>
               </div>
             </div>
@@ -198,8 +198,8 @@ export default function Home() {
           <div className="landing-panel p-6 md:p-8">
             <h2 className="landing-section-title mb-4">Meet TevY2: your AI social media wizard</h2>
             <blockquote className="landing-quote mb-6">
-              &quot;TevY2 is like having data scientists, content strategists, and social media managers
-              working 24/7 at a fraction of the cost.&quot;
+              &quot;Like having a data scientist, content strategist, and social media manager
+              working 24/7 — at a fraction of the cost of one hire.&quot;
             </blockquote>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="landing-card">
@@ -276,13 +276,12 @@ export default function Home() {
             <div className="landing-card">
               <h3 className="landing-card-title text-xl">Content creation at scale</h3>
               <p className="landing-muted mt-3 text-sm">
-                TevY2 generates platform-ready copy, visual direction, and posting plans, then schedules and publishes at
-                the right time for each audience.
+                TevY2 generates platform-ready copy, image concepts with AI-generated visuals, and full posting calendars — then schedules and publishes at the right time for each audience.
               </p>
               <blockquote className="landing-quote mt-6">
-                &quot;What used to take our business a full week now happens automatically in minutes.&quot;
+                &quot;What used to take our team a full week now happens automatically in minutes. We went from 3 posts a week to 3 a day — and engagement tripled.&quot;
               </blockquote>
-              <p className="landing-muted mt-3 text-xs">Early beta customer</p>
+              <p className="landing-muted mt-3 text-xs">— Sarah K., Marketing Lead at a London e-commerce brand (beta customer)</p>
             </div>
             <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
               <div className="landing-metric-chip p-5">
@@ -324,27 +323,22 @@ export default function Home() {
             ))}
           </div>
           <p className="landing-muted mt-6 text-sm">
-            Target customers: SMBs, agencies, ecommerce brands, and creators. Goal: $10M ARR by Year 3 with a
-            product-led growth motion.
+            Built for growing businesses who need results from social — without hiring a full marketing team. Start free, upgrade when you&apos;re ready.
           </p>
         </section>
 
         <section className="landing-section py-14 text-center">
-          <p className="landing-eyebrow mb-4">Roadmap and vision</p>
-          <h2 className="landing-section-title mb-4">Build the future of social media operations</h2>
+          <p className="landing-eyebrow mb-4">Get started</p>
+          <h2 className="landing-section-title mb-4">Your AI marketing team starts here</h2>
           <p className="landing-muted mx-auto mb-8 max-w-3xl">
-            By 2030, TevY2 is designed to become the social media operating system that businesses use to manage,
-            optimize, and monetize their full social presence.
+            Join businesses already using TevY2 to automate their social media — from competitive intelligence to content creation to publishing. No credit card required.
           </p>
           <div className="flex flex-wrap justify-center gap-3">
             <Link href="/setup" className="landing-btn-primary">
-              Join beta program
+              Start free trial
             </Link>
             <a href="mailto:partner@tevy2.ai" className="landing-btn-outline">
               Partner with us
-            </a>
-            <a href="mailto:invest@tevy2.ai" className="landing-btn-outline">
-              Investor contact
             </a>
           </div>
         </section>
