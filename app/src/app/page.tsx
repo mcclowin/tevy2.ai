@@ -92,8 +92,9 @@ export default function Home() {
       </nav>
 
       <main className="landing-container pb-24">
+        {/* ═══════ HERO ═══════ */}
         <section className="landing-hero pb-20 pt-8 md:pt-12">
-          <p className="landing-eyebrow mb-5">AI-powered - Fully automated - Data-driven</p>
+          <p className="landing-eyebrow mb-5">AI-powered · Fully automated · Data-driven</p>
 
           <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
             <div className="landing-panel p-6 md:p-8">
@@ -132,6 +133,52 @@ export default function Home() {
           </div>
         </section>
 
+        {/* ═══════ REC #1: INTERACTIVE DEMO / MICRO-TOOL ═══════ */}
+        <section className="landing-section py-10" id="try-it">
+          <p className="landing-eyebrow mb-4">Try it now</p>
+          <h2 className="landing-section-title mb-8">
+            See TevY2 in action — <span className="landing-highlight">in 30 seconds</span>
+          </h2>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div className="landing-panel p-6 md:p-8">
+              <p className="landing-step">⚡</p>
+              <h3 className="landing-card-title mt-3 text-xl">Competitor Vibe Check</h3>
+              <p className="landing-muted mt-3 text-sm">
+                Drop a competitor&apos;s social handle and TevY2 generates a 3-point insight report — their posting frequency, top content themes, and engagement gaps you can exploit.
+              </p>
+              <div className="mt-6 flex items-center gap-2">
+                <div className="flex-1 rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/40">
+                  @competitor_handle
+                </div>
+                <Link href="/setup" className="landing-btn-primary !py-3 whitespace-nowrap">
+                  Analyze free →
+                </Link>
+              </div>
+              <p className="landing-muted mt-3 text-xs">No signup required. Get your report in under 30 seconds.</p>
+            </div>
+
+            <div className="landing-panel p-6 md:p-8">
+              <p className="landing-step">🎬</p>
+              <h3 className="landing-card-title mt-3 text-xl">Interactive product tour</h3>
+              <p className="landing-muted mt-3 text-sm">
+                Walk through the full TevY2 experience — from competitor scan to published post — without creating an account. Click through a real workflow.
+              </p>
+              <div className="mt-6 flex h-32 items-center justify-center rounded-xl border border-white/10 bg-white/[.03]">
+                <div className="text-center">
+                  <p className="text-3xl">▶</p>
+                  <p className="landing-muted mt-2 text-xs">Interactive demo — 2 min walkthrough</p>
+                </div>
+              </div>
+              <div className="mt-4">
+                <Link href="/setup" className="landing-btn-outline w-full justify-center !py-3 text-center text-sm">
+                  Start the guided tour
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ═══════ PROBLEM ═══════ */}
         <section className="landing-section py-10" id="problem">
           <p className="landing-eyebrow mb-4">The problem</p>
           <h2 className="landing-section-title mb-8">
@@ -171,6 +218,7 @@ export default function Home() {
           </div>
         </section>
 
+        {/* ═══════ PAIN POINTS ═══════ */}
         <section className="landing-section py-10">
           <p className="landing-eyebrow mb-4">Pain points</p>
           <h2 className="landing-section-title mb-8">Three questions every marketer keeps asking</h2>
@@ -193,6 +241,7 @@ export default function Home() {
           </p>
         </section>
 
+        {/* ═══════ SOLUTION ═══════ */}
         <section className="landing-section py-10">
           <p className="landing-eyebrow mb-4">The solution</p>
           <div className="landing-panel p-6 md:p-8">
@@ -219,12 +268,56 @@ export default function Home() {
                 <p className="landing-muted text-sm">Improves output quality and targeting from every campaign outcome.</p>
               </div>
             </div>
-            <p className="mt-5 landing-muted text-sm">
-              Strategic intelligence - End-to-end automation - Multi-platform mastery - Measurable ROI
-            </p>
           </div>
         </section>
 
+        {/* ═══════ REC #2: AUDIENCE SEGMENTS ═══════ */}
+        <section className="landing-section py-10" id="who-its-for">
+          <p className="landing-eyebrow mb-4">Built for your business</p>
+          <h2 className="landing-section-title mb-8">
+            One platform, <span className="landing-highlight">tailored to how you work</span>
+          </h2>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="landing-card">
+              <p className="text-2xl mb-3">🏪</p>
+              <p className="landing-card-title">For growing businesses</p>
+              <p className="landing-muted mt-2 text-sm">
+                You know social matters, but you don&apos;t have a dedicated marketing team. TevY2 handles competitive research, content creation, and publishing — so you can focus on running your business.
+              </p>
+              <ul className="mt-4 space-y-2 text-sm">
+                <li className="landing-list-item">Save 25+ hours/week on social</li>
+                <li className="landing-list-item">Consistent posting without the burnout</li>
+                <li className="landing-list-item">From $39/mo — less than a freelancer&apos;s day rate</li>
+              </ul>
+            </div>
+            <div className="landing-card">
+              <p className="text-2xl mb-3">🏢</p>
+              <p className="landing-card-title">For agencies &amp; consultants</p>
+              <p className="landing-muted mt-2 text-sm">
+                Manage multiple client accounts without scaling headcount. White-label AI content, automated reporting, and margin optimization built in.
+              </p>
+              <ul className="mt-4 space-y-2 text-sm">
+                <li className="landing-list-item">Multi-account management dashboard</li>
+                <li className="landing-list-item">Client-specific brand voice training</li>
+                <li className="landing-list-item">Automated performance reports</li>
+              </ul>
+            </div>
+            <div className="landing-card">
+              <p className="text-2xl mb-3">🎨</p>
+              <p className="landing-card-title">For creators &amp; freelancers</p>
+              <p className="landing-muted mt-2 text-sm">
+                Build your personal brand on autopilot. TevY2 learns your voice, spots trends in your niche, and keeps your feeds active even when you&apos;re heads-down on client work.
+              </p>
+              <ul className="mt-4 space-y-2 text-sm">
+                <li className="landing-list-item">Niche trend detection for your audience</li>
+                <li className="landing-list-item">AI writes in your voice, not generic corporate</li>
+                <li className="landing-list-item">Schedule a week of content in 5 minutes</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        {/* ═══════ HOW IT WORKS ═══════ */}
         <section id="how-it-works" className="landing-section py-10">
           <p className="landing-eyebrow mb-4">Product features</p>
           <h2 className="landing-section-title mb-8">How TevY2 works: six steps</h2>
@@ -239,6 +332,52 @@ export default function Home() {
           </div>
         </section>
 
+        {/* ═══════ REC #4: VISUAL CAPABILITIES SHOWCASE ═══════ */}
+        <section className="landing-section py-10" id="visuals">
+          <p className="landing-eyebrow mb-4">AI-generated visuals</p>
+          <h2 className="landing-section-title mb-8">
+            From brand guidelines to <span className="landing-highlight">publish-ready content</span>
+          </h2>
+          <div className="landing-panel p-6 md:p-8">
+            <div className="grid gap-6 lg:grid-cols-3">
+              <div className="text-center">
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl border border-white/10 bg-white/[.03] text-3xl">📋</div>
+                <p className="landing-card-title mt-4">1. Your brand input</p>
+                <p className="landing-muted mt-2 text-sm">Upload your brand colors, fonts, tone guidelines, and example content.</p>
+              </div>
+              <div className="text-center">
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl border border-white/10 bg-white/[.03] text-3xl">🧠</div>
+                <p className="landing-card-title mt-4">2. TevY2 creates</p>
+                <p className="landing-muted mt-2 text-sm">AI generates copy, image concepts, and visual assets — matched to your brand and each platform&apos;s format.</p>
+              </div>
+              <div className="text-center">
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl border border-white/10 bg-white/[.03] text-3xl">🚀</div>
+                <p className="landing-card-title mt-4">3. Published automatically</p>
+                <p className="landing-muted mt-2 text-sm">Platform-optimized posts go live at peak engagement times. Review first, or let TevY2 auto-publish.</p>
+              </div>
+            </div>
+            <div className="mt-8 grid gap-4 md:grid-cols-4">
+              <div className="rounded-xl border border-white/10 bg-white/[.03] p-4 text-center">
+                <p className="text-sm font-medium text-white/80">Instagram carousel</p>
+                <p className="landing-muted text-xs mt-1">1080×1080 · brand colors</p>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/[.03] p-4 text-center">
+                <p className="text-sm font-medium text-white/80">LinkedIn thought piece</p>
+                <p className="landing-muted text-xs mt-1">Text + header image</p>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/[.03] p-4 text-center">
+                <p className="text-sm font-medium text-white/80">X/Twitter thread</p>
+                <p className="landing-muted text-xs mt-1">Hook + 5 tweets + CTA</p>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/[.03] p-4 text-center">
+                <p className="text-sm font-medium text-white/80">Facebook post</p>
+                <p className="landing-muted text-xs mt-1">Copy + visual + link</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ═══════ AI CAPABILITIES ═══════ */}
         <section className="landing-section py-10">
           <p className="landing-eyebrow mb-4">AI capabilities</p>
           <h2 className="landing-section-title mb-8">Intelligence that understands your market</h2>
@@ -270,6 +409,7 @@ export default function Home() {
           </div>
         </section>
 
+        {/* ═══════ AUTOMATION + TESTIMONIAL ═══════ */}
         <section className="landing-section py-10">
           <p className="landing-eyebrow mb-4">Automation engine</p>
           <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
@@ -300,9 +440,137 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="landing-section py-10">
+        {/* ═══════ REC #5: COMPETITOR COMPARISON ═══════ */}
+        <section className="landing-section py-10" id="compare">
+          <p className="landing-eyebrow mb-4">Why TevY2</p>
+          <h2 className="landing-section-title mb-8">
+            Not another scheduling tool. <span className="landing-highlight">An AI marketing team.</span>
+          </h2>
+          <div className="landing-panel p-6 md:p-8 overflow-x-auto">
+            <table className="w-full text-sm" style={{ minWidth: 600 }}>
+              <thead>
+                <tr className="border-b border-white/10">
+                  <th className="pb-4 text-left font-medium text-white/40 w-1/4"></th>
+                  <th className="pb-4 text-center font-bold">
+                    <span className="landing-highlight">TevY2.ai</span>
+                  </th>
+                  <th className="pb-4 text-center font-medium text-white/50">Hootsuite</th>
+                  <th className="pb-4 text-center font-medium text-white/50">Buffer</th>
+                </tr>
+              </thead>
+              <tbody className="landing-muted">
+                <tr className="border-b border-white/5">
+                  <td className="py-3 text-white/60">AI content generation</td>
+                  <td className="py-3 text-center">✅ Full autopilot</td>
+                  <td className="py-3 text-center">⚠️ Basic suggestions</td>
+                  <td className="py-3 text-center">⚠️ AI assistant</td>
+                </tr>
+                <tr className="border-b border-white/5">
+                  <td className="py-3 text-white/60">Competitor intelligence</td>
+                  <td className="py-3 text-center">✅ Real-time tracking</td>
+                  <td className="py-3 text-center">⚠️ Manual streams</td>
+                  <td className="py-3 text-center">❌ None</td>
+                </tr>
+                <tr className="border-b border-white/5">
+                  <td className="py-3 text-white/60">Trend detection</td>
+                  <td className="py-3 text-center">✅ 3 weeks early</td>
+                  <td className="py-3 text-center">❌ None</td>
+                  <td className="py-3 text-center">❌ None</td>
+                </tr>
+                <tr className="border-b border-white/5">
+                  <td className="py-3 text-white/60">Auto-publishing</td>
+                  <td className="py-3 text-center">✅ AI-optimized timing</td>
+                  <td className="py-3 text-center">✅ Scheduled</td>
+                  <td className="py-3 text-center">✅ Scheduled</td>
+                </tr>
+                <tr className="border-b border-white/5">
+                  <td className="py-3 text-white/60">Visual content creation</td>
+                  <td className="py-3 text-center">✅ AI-generated</td>
+                  <td className="py-3 text-center">⚠️ Canva integration</td>
+                  <td className="py-3 text-center">⚠️ Canva integration</td>
+                </tr>
+                <tr className="border-b border-white/5">
+                  <td className="py-3 text-white/60">Brand voice learning</td>
+                  <td className="py-3 text-center">✅ Trained on your content</td>
+                  <td className="py-3 text-center">❌ None</td>
+                  <td className="py-3 text-center">❌ None</td>
+                </tr>
+                <tr>
+                  <td className="py-3 text-white/60">Starting price</td>
+                  <td className="py-3 text-center font-bold text-white">$39/mo</td>
+                  <td className="py-3 text-center">$99/mo</td>
+                  <td className="py-3 text-center">$6/mo</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p className="landing-muted mt-4 text-sm text-center">
+            Traditional tools tell you <em>where</em> to post. TevY2 tells you <strong className="text-white/80">what, when, and why</strong> — then does it for you.
+          </p>
+        </section>
+
+        {/* ═══════ REC #3: HIGGSFIELD COMMUNITY ═══════ */}
+        <section className="landing-section py-10" id="community">
+          <p className="landing-eyebrow mb-4">Community</p>
+          <h2 className="landing-section-title mb-8">
+            Backed by the <span className="landing-highlight">15 million</span> strong higgsfield.ai community
+          </h2>
+          <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
+            <div className="landing-panel p-6 md:p-8">
+              <h3 className="landing-card-title text-xl mb-4">Why the community matters</h3>
+              <p className="landing-muted text-sm mb-4">
+                TevY2 is the official AI marketing partner for the higgsfield.ai community — one of the largest creator and business networks in the world. That means:
+              </p>
+              <div className="space-y-3">
+                <div className="landing-card !p-4">
+                  <p className="landing-card-title text-sm">Community-powered features</p>
+                  <p className="landing-muted text-xs mt-1">Every feature is built from real user feedback. What the community requests, we ship.</p>
+                </div>
+                <div className="landing-card !p-4">
+                  <p className="landing-card-title text-sm">Shared intelligence</p>
+                  <p className="landing-muted text-xs mt-1">Trend detection powered by signals from millions of active creators across every niche.</p>
+                </div>
+                <div className="landing-card !p-4">
+                  <p className="landing-card-title text-sm">Battle-tested at scale</p>
+                  <p className="landing-muted text-xs mt-1">The AI improves from community-wide patterns, not just your data alone.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="landing-panel p-6 md:p-8 flex flex-col justify-between">
+              <div>
+                <h3 className="landing-card-title text-xl mb-4">Community exclusive</h3>
+                <p className="landing-muted text-sm mb-6">
+                  Higgsfield.ai members get early access to new features, exclusive templates, and an extended free trial.
+                </p>
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div>
+                    <p className="landing-highlight text-2xl font-bold">15M+</p>
+                    <p className="landing-muted text-xs">Community members</p>
+                  </div>
+                  <div>
+                    <p className="landing-highlight text-2xl font-bold">200+</p>
+                    <p className="landing-muted text-xs">Content templates</p>
+                  </div>
+                  <div>
+                    <p className="landing-highlight text-2xl font-bold">30 days</p>
+                    <p className="landing-muted text-xs">Extended free trial</p>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-8">
+                <Link href="/setup?ref=higgsfield" className="landing-btn-primary w-full justify-center !py-3 text-center">
+                  Claim your community offer →
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ═══════ PRICING ═══════ */}
+        <section className="landing-section py-10" id="pricing">
           <p className="landing-eyebrow mb-4">Pricing</p>
-          <h2 className="landing-section-title mb-8">Pricing</h2>
+          <h2 className="landing-section-title mb-8">Simple pricing, no surprises</h2>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {pricingPlans.map((plan) => (
               <div key={plan.name} className={`landing-card ${plan.featured ? "landing-card-featured" : ""}`}>
@@ -327,6 +595,7 @@ export default function Home() {
           </p>
         </section>
 
+        {/* ═══════ FINAL CTA ═══════ */}
         <section className="landing-section py-14 text-center">
           <p className="landing-eyebrow mb-4">Get started</p>
           <h2 className="landing-section-title mb-4">Your AI marketing team starts here</h2>
