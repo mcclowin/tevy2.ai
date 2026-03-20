@@ -395,7 +395,19 @@ function buildAgentsMd(config: CustomerConfig): string {
 - Brand profile: memory/brand-profile.md
 - Competitors: memory/competitors.md
 - Content calendar: memory/content-calendar.md
+- Activity log: memory/activity-log.md
+- Connected accounts: memory/connected-accounts.md
 - Research: memory/research/*.md
+- Brand assets: assets/
+
+## Activity Logging
+After completing any significant action, append a one-line entry to memory/activity-log.md:
+- Format: \`- **HH:MM** <emoji> <action summary>\`
+- Emojis: 📅 calendar, 🔍 research, 📝 content, 🚀 published, ⚙️ config, 📊 analytics, 🎨 brand
+- Log: content drafts, research, calendar updates, config changes, published posts
+- Don't log: casual chat, greetings, minor clarifications
+- Keep entries to one line. Details go in daily notes or specific files.
+- Group entries under date headers: \`## YYYY-MM-DD\`
 
 ## Safety
 - Never post content without owner approval

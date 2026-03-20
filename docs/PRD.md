@@ -142,6 +142,46 @@ The agent image is responsible for shipping the shared Tevy system layer on ever
 
 The image should treat `/opt/tevy` as the managed system layer and `/home/agent/.openclaw` as the customer-owned workspace layer.
 
+### Agent Workspace Files
+
+See `docs/workspace-spec.md` for the full file system specification and dashboard mapping.
+
+Key files the agent manages:
+
+| File | Purpose | Dashboard tab |
+|---|---|---|
+| `memory/brand-profile.md` | Brand voice, socials, audience | Brand |
+| `memory/competitors.md` | Tracked competitors + analysis | Market Intel |
+| `memory/content-calendar.md` | Scheduled posts + backlog | Calendar |
+| `memory/activity-log.md` | Bot activity feed (appended per action) | Home (recent activity) |
+| `memory/connected-accounts.md` | Social accounts + tool integrations status | Settings / Brand |
+| `memory/research/*.md` | Market intel reports | Market Intel |
+| `assets/` | Uploaded brand images (logo, etc.) | Brand |
+
+### Activity Logging Behavior
+
+The agent must maintain `memory/activity-log.md` — a running log of significant actions.
+
+- Format: `- **HH:MM** <emoji> <action summary>` under `## YYYY-MM-DD` headers
+- Log: content drafts, research, calendar updates, published posts, config changes
+- Skip: casual chat, greetings, minor clarifications
+- The dashboard Home tab pulls the latest entries from this file to show "Recent Activity"
+- This is defined in AGENTS.md behavior rules (baked into the agent image template)
+
+### Connected Accounts Model
+
+Three types of connections tracked in `memory/connected-accounts.md`:
+
+1. **Brand Accounts** — business's official social accounts (for publishing/analytics)
+2. **Bot-Controlled Accounts** — accounts the bot can post to (may overlap with brand accounts). Auth via browser cookies or API tokens.
+3. **Tool Integrations** — third-party APIs: Brave Search, Higgsfield image gen, Tavily, etc. Enabled/disabled as toggles in the dashboard.
+
+The dashboard should let users:
+- Add/remove social accounts via dropdown (X, Instagram, LinkedIn, Reddit, TikTok, Facebook, YouTube)
+- See connection status per account (✅ connected / ❌ not connected / ⚠️ expired)
+- Enable/disable tool integrations with a toggle
+- One-click guided flow for connecting a new social account
+
 ### Browser Support — Social Platform Access
 
 Each agent VPS must ship with headless browser capabilities for traversing and interacting with social platforms where API access is limited or unavailable.
@@ -834,19 +874,23 @@ Implementation note:
 ### MVP dashboard scope
 
 **Week 1 (ship immediately):**
-- Home tab: agent status + embedded webchat
-- Settings tab: start/stop/delete + Telegram connection status
-- Link to full Control UI for everything else
+- Home tab: agent status card + recent activity feed (from `memory/activity-log.md`) + chat box at bottom (terminal-style, OpenClaw TUI aesthetic)
+- Settings tab: start/stop/delete + Telegram connection + connected tools toggles
+- Remove "Get Started" section from home — wizard handles onboarding
 
 **Week 2-3:**
-- Brand tab: read/write brand-profile.md via rich form
-- Calendar tab: read/write content-calendar.md
-- Research tab: display research/*.md files
+- Brand tab: editable form fields (business name, website, industry, brand voice, audience, posting goal) mapped to `memory/brand-profile.md`. Dynamic social accounts list — add/remove via dropdown (X, Instagram, LinkedIn, Reddit, TikTok, Facebook, YouTube). Brand asset uploads to `assets/` directory.
+- Calendar tab: display `memory/content-calendar.md` — scheduled posts with approve/reject actions, backlog ideas
+- Market Intel tab (was "Research"): tracked competitors from `memory/competitors.md`, research reports from `memory/research/*.md`
 
 **Month 2+:**
-- Analytics tab: social platform API integration
-- SEO tab: display audit results
-- Skills marketplace in dashboard
+- Analytics tab: social platform API integration for engagement metrics
+- Connected accounts management: guided flows for connecting social accounts, cookie status monitoring
+- Tool integrations panel: enable/disable Brave Search, Higgsfield, Tavily, etc. with toggles
+
+**NOT standalone tabs:**
+- SEO: surface as a suggested prompt or under Market Intel, not its own tab
+- Skills: use OpenClaw Control UI embed, not custom
 
 ---
 
