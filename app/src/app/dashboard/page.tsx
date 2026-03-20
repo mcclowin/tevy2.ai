@@ -31,6 +31,42 @@ type BrandAsset = {
   uploadedAt: string;
 };
 
+type BrandFormData = {
+  businessName: string;
+  websiteUrl: string;
+  industry: string;
+  brandVoice: string;
+  targetAudience: string;
+  postingGoal: string;
+};
+
+type SocialAccount = {
+  platform: string;
+  handle: string;
+  connected: boolean;
+};
+
+type ActivityEntry = {
+  time: string;
+  emoji: string;
+  summary: string;
+};
+
+type CalendarEntry = {
+  date: string;
+  platform: string;
+  draft: string;
+  status: string;
+  statusEmoji: string;
+};
+
+type CompetitorEntry = {
+  name: string;
+  website: string;
+  description: string;
+  differentiator: string;
+};
+
 function sanitizeFileName(name: string): string {
   return name.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-|-$/g, "") || "asset";
 }
@@ -48,13 +84,165 @@ async function fileToBase64(file: File): Promise<string> {
   return btoa(binary);
 }
 
+const PLATFORM_ICONS: Record<string, string> = {
+  "X/Twitter": "𝕏",
+  "Instagram": "📸",
+  "LinkedIn": "💼",
+  "Reddit": "🤖",
+  "TikTok": "🎵",
+  "Facebook": "📘",
+  "YouTube": "▶️",
+};
+
+const PLATFORM_OPTIONS = ["X/Twitter", "Instagram", "LinkedIn", "Reddit", "TikTok", "Facebook", "YouTube"];
+
+function parseBrandProfile(md: string): { form: BrandFormData; accounts: SocialAccount[] } {
+  const form: BrandFormData = {
+    businessName: "",
+    websiteUrl: "",
+    industry: "",
+    brandVoice: "",
+    targetAudience: "",
+    postingGoal: "",
+  };
+  const accounts: SocialAccount[] = [];
+
+  const extract = (label: string): string => {
+    const regex = new RegExp(`\\*\\*${label}:\\*\\*\\s*(.+?)(?:\\n|$)`, "i");
+    const match = md.match(regex);
+    return match ? match[1].trim() : "";
+  };
+
+  const extractMultiline = (label: string): string => {
+    const regex = new RegExp(`\\*\\*${label}:\\*\\*\\s*\\n([\\s\\S]*?)(?=\\n\\*\\*|\\n##|$)`, "i");
+    const match = md.match(regex);
+    if (match) return match[1].trim();
+    return extract(label);
+  };
+
+  form.businessName = extract("Name") || extract("Business Name");
+  form.websiteUrl = extract("Website");
+  form.industry = extract("Industry");
+  form.brandVoice = extractMultiline("Brand Voice") || extractMultiline("Tone");
+  form.targetAudience = extractMultiline("Target Audience") || extractMultiline("Audience");
+  form.postingGoal = extract("Posting Goal") || extract("Goal");
+
+  const socialSection = md.match(/## Social Presence[\s\S]*?(?=\n## |$)/i);
+  if (socialSection) {
+    const lines = socialSection[0].split("\n");
+    for (const line of lines) {
+      const accountMatch = line.match(/^-\s*\*\*(.+?)\*\*:\s*(.+)/);
+      if (accountMatch) {
+        const platform = accountMatch[1].trim();
+        const handle = accountMatch[2].trim();
+        if (handle && handle !== "—" && handle !== "-") {
+          accounts.push({ platform, handle, connected: false });
+        }
+      }
+    }
+  }
+
+  return { form, accounts };
+}
+
+function serializeBrandProfile(form: BrandFormData, accounts: SocialAccount[]): string {
+  let md = `# Brand Profile\n\n`;
+  md += `**Name:** ${form.businessName}\n`;
+  md += `**Website:** ${form.websiteUrl}\n`;
+  md += `**Industry:** ${form.industry}\n`;
+  md += `**Brand Voice:**\n${form.brandVoice}\n`;
+  md += `**Target Audience:**\n${form.targetAudience}\n`;
+  md += `**Posting Goal:** ${form.postingGoal}\n`;
+
+  if (accounts.length > 0) {
+    md += `\n## Social Presence\n\n`;
+    for (const acc of accounts) {
+      md += `- **${acc.platform}**: ${acc.handle}\n`;
+    }
+  }
+
+  return md;
+}
+
+function parseActivityLog(md: string): ActivityEntry[] {
+  const entries: ActivityEntry[] = [];
+  const lines = md.split("\n");
+  for (const line of lines) {
+    const match = line.match(/^-\s*\*\*(\d{1,2}:\d{2})\*\*\s*(\S+)\s+(.+)/);
+    if (match) {
+      entries.push({ time: match[1], emoji: match[2], summary: match[3] });
+    }
+  }
+  return entries;
+}
+
+function parseContentCalendar(md: string): CalendarEntry[] {
+  const entries: CalendarEntry[] = [];
+  const lines = md.split("\n");
+  for (const line of lines) {
+    const match = line.match(/^-\s*\*\*(.+?)\*\*\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(🟡|✅|🚀)\s*(.+)/);
+    if (match) {
+      entries.push({
+        date: match[1].trim(),
+        platform: match[2].trim(),
+        draft: match[3].trim(),
+        statusEmoji: match[4],
+        status: match[5].trim(),
+      });
+    }
+    const altMatch = line.match(/^-\s*(🟡|✅|🚀)\s*\*\*(.+?)\*\*\s*\|\s*(.+?)\s*\|\s*(.+)/);
+    if (altMatch) {
+      entries.push({
+        statusEmoji: altMatch[1],
+        date: altMatch[2].trim(),
+        platform: altMatch[3].trim(),
+        draft: altMatch[4].trim(),
+        status: altMatch[1] === "🟡" ? "Pending" : altMatch[1] === "✅" ? "Approved" : "Published",
+      });
+    }
+  }
+  return entries;
+}
+
+function parseCompetitors(md: string): CompetitorEntry[] {
+  const entries: CompetitorEntry[] = [];
+  const sections = md.split(/(?=^##\s)/m);
+  for (const section of sections) {
+    const nameMatch = section.match(/^##\s+(.+)/);
+    if (!nameMatch) continue;
+    const name = nameMatch[1].trim();
+    if (name.toLowerCase() === "competitors" || name.toLowerCase() === "tracked competitors") continue;
+
+    const website = (section.match(/\*\*Website\*\*:\s*(.+)/i) || section.match(/\*\*URL\*\*:\s*(.+)/i) || ["", ""])[1].trim();
+    const description = (section.match(/\*\*Description\*\*:\s*(.+)/i) || section.match(/\*\*What they do\*\*:\s*(.+)/i) || ["", ""])[1].trim();
+    const differentiator = (section.match(/\*\*Differentiator\*\*:\s*(.+)/i) || section.match(/\*\*Difference\*\*:\s*(.+)/i) || ["", ""])[1].trim();
+
+    entries.push({ name, website, description, differentiator });
+  }
+
+  if (entries.length === 0) {
+    const lines = md.split("\n");
+    for (const line of lines) {
+      const match = line.match(/^-\s*\*\*(.+?)\*\*\s*[-–—]\s*\[(.+?)\]\((.+?)\)\s*[-–—:]\s*(.+)/);
+      if (match) {
+        entries.push({
+          name: match[1].trim(),
+          website: match[3].trim(),
+          description: match[4].trim(),
+          differentiator: "",
+        });
+      }
+    }
+  }
+
+  return entries;
+}
+
 const NAV_ITEMS = [
   { id: "home", icon: "🏠", label: "Home" },
   { id: "brand", icon: "🎯", label: "Brand" },
   { id: "calendar", icon: "📅", label: "Calendar" },
-  { id: "analytics", icon: "📊", label: "Analytics" },
-  { id: "research", icon: "🔍", label: "Research" },
-  { id: "seo", icon: "🔎", label: "SEO" },
+  { id: "market-intel", icon: "🔍", label: "Market Intel" },
   { id: "settings", icon: "⚙️", label: "Settings" },
 ];
 
@@ -202,10 +390,8 @@ export default function DashboardPage() {
           <>
             {activeTab === "home" && <HomeTab agentData={agentData} liveStatus={liveStatus} />}
             {activeTab === "brand" && <BrandTab agentData={agentData} />}
-            {activeTab === "calendar" && <CalendarTab />}
-            {activeTab === "analytics" && <AnalyticsTab />}
-            {activeTab === "research" && <ResearchTab agentId={agentData?.id || ""} />}
-            {activeTab === "seo" && <SEOTab agentId={agentData?.id || ""} />}
+            {activeTab === "calendar" && <CalendarTab agentId={agentData?.id || ""} />}
+            {activeTab === "market-intel" && <MarketIntelTab agentId={agentData?.id || ""} />}
             {activeTab === "settings" && <SettingsTab agentData={agentData} liveStatus={liveStatus} setLiveStatus={setLiveStatus} setHasAgent={setHasAgent} />}
           </>
         )}
@@ -254,7 +440,6 @@ function OnboardingPanel({ onComplete }: { onComplete: (agent: Agent) => void })
         setBootStatus(status);
         if (status.ready) {
           if (pollRef.current) clearInterval(pollRef.current);
-          // Re-fetch agent to get full data
           setTimeout(async () => {
             try {
               const { agents } = await listAgents();
@@ -461,6 +646,22 @@ function OnboardingPanel({ onComplete }: { onComplete: (agent: Agent) => void })
 
 /* ─── HOME TAB ─── */
 function HomeTab({ agentData, liveStatus }: { agentData: Agent | null; liveStatus: string }) {
+  const [activities, setActivities] = useState<ActivityEntry[]>([]);
+  const [activitiesLoading, setActivitiesLoading] = useState(true);
+
+  useEffect(() => {
+    if (!agentData?.id) return;
+    setActivitiesLoading(true);
+    readAgentFile(agentData.id, "memory/activity-log.md")
+      .then((res) => {
+        if (res.content) {
+          setActivities(parseActivityLog(res.content));
+        }
+      })
+      .catch(() => {})
+      .finally(() => setActivitiesLoading(false));
+  }, [agentData?.id]);
+
   return (
     <div className="h-full flex flex-col">
       <div className="flex-1 overflow-auto p-8 max-w-4xl">
@@ -507,41 +708,65 @@ function HomeTab({ agentData, liveStatus }: { agentData: Agent | null; liveStatu
           </div>
         </div>
 
-        {/* Quick actions */}
+        {/* Recent Activity */}
         <div className="glass rounded-xl p-6 mb-6">
-          <h3 className="font-semibold mb-3">Get started</h3>
-          <p className="text-sm text-[var(--muted)] mb-4">
-            Use Telegram to work with your agent. Good first prompts:
-          </p>
-          <div className="flex gap-2 flex-wrap">
-            {["Analyze my website", "Draft 3 social posts", "Research my competitors", "Run an SEO audit", "Create a content calendar"].map((s) => (
-              <span key={s}
-                className="px-3 py-1.5 rounded-full text-xs bg-[var(--surface-light)] text-[var(--muted)] border border-[var(--border)]">
-                {s}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        <div className="glass rounded-xl p-6 mb-6">
-          <h3 className="font-semibold mb-3">Channel</h3>
-          <div className="text-center py-10 border border-dashed border-[var(--border)] rounded-xl">
-            <div className="text-3xl mb-3">✈️</div>
-            <p className="text-sm text-[var(--muted)] mb-2">
-              Dashboard chat is disabled for now.
-            </p>
-            <p className="text-xs text-[var(--muted)]">
-              Use your Telegram bot as the primary way to chat with the agent.
-            </p>
-          </div>
-        </div>
-
-        {/* Activity */}
-        <div className="glass rounded-xl p-6">
           <h3 className="font-semibold mb-3">Recent Activity</h3>
-          <div className="text-center py-6">
-            <div className="text-2xl mb-2">📋</div>
-            <p className="text-sm text-[var(--muted)]">Activity will appear here once you start chatting.</p>
+          {activitiesLoading ? (
+            <div className="text-center py-6">
+              <div className="w-5 h-5 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+              <p className="text-sm text-[var(--muted)]">Loading activity...</p>
+            </div>
+          ) : activities.length > 0 ? (
+            <div className="space-y-3">
+              {activities.map((entry, i) => (
+                <div key={i} className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-14 text-xs font-mono text-[var(--muted)] pt-0.5">{entry.time}</div>
+                  <div className="flex-shrink-0 w-6 text-center relative">
+                    <span>{entry.emoji}</span>
+                    {i < activities.length - 1 && (
+                      <div className="absolute left-1/2 top-6 bottom-0 w-px bg-[var(--border)] -translate-x-1/2" style={{ height: "calc(100% + 0.25rem)" }}></div>
+                    )}
+                  </div>
+                  <div className="text-sm text-[var(--foreground)]">{entry.summary}</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-6">
+              <div className="text-2xl mb-2">📋</div>
+              <p className="text-sm text-[var(--muted)]">No activity yet</p>
+            </div>
+          )}
+        </div>
+
+        {/* Terminal-style chat box */}
+        <div className="rounded-xl overflow-hidden border border-[var(--border)]">
+          <div className="flex items-center gap-2 px-4 py-2 bg-[#1a1a2e] border-b border-[var(--border)]">
+            <div className="flex gap-1.5">
+              <div className="w-2.5 h-2.5 rounded-full bg-red-500/60"></div>
+              <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/60"></div>
+              <div className="w-2.5 h-2.5 rounded-full bg-green-500/60"></div>
+            </div>
+            <span className="text-xs text-[var(--muted)] font-mono ml-2">agent-channel</span>
+          </div>
+          <div className="bg-[#0d0d1a] p-4 font-mono text-sm" style={{ height: "200px", display: "flex", flexDirection: "column" }}>
+            <div className="flex-1 overflow-auto">
+              <div className="text-[var(--muted)]">
+                <span className="text-green-400/60">$</span> Dashboard chat is disabled.
+              </div>
+              <div className="text-[var(--muted)] mt-1">
+                <span className="text-green-400/60">$</span> Use your Telegram bot to chat with the agent.
+              </div>
+            </div>
+            <div className="flex items-center gap-2 pt-2 border-t border-[var(--border)]">
+              <span className="text-green-400/60">$</span>
+              <input
+                type="text"
+                disabled
+                placeholder="Chat coming soon..."
+                className="flex-1 bg-transparent text-sm font-mono text-[var(--foreground)] placeholder-[var(--muted)] focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -551,7 +776,18 @@ function HomeTab({ agentData, liveStatus }: { agentData: Agent | null; liveStatu
 
 /* ─── BRAND TAB ─── */
 function BrandTab({ agentData }: { agentData: Agent | null }) {
-  const [brandContent, setBrandContent] = useState("");
+  const [brandForm, setBrandForm] = useState<BrandFormData>({
+    businessName: "",
+    websiteUrl: "",
+    industry: "",
+    brandVoice: "",
+    targetAudience: "",
+    postingGoal: "",
+  });
+  const [socialAccounts, setSocialAccounts] = useState<SocialAccount[]>([]);
+  const [showAddAccount, setShowAddAccount] = useState(false);
+  const [newPlatform, setNewPlatform] = useState(PLATFORM_OPTIONS[0]);
+  const [newHandle, setNewHandle] = useState("");
   const [assets, setAssets] = useState<BrandAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -573,7 +809,11 @@ function BrandTab({ agentData }: { agentData: Agent | null }) {
           readAgentFile(agentId, "brand-assets/index.json").catch(() => ({ content: "" })),
         ]);
 
-        setBrandContent(profile.content || "");
+        if (profile.content) {
+          const parsed = parseBrandProfile(profile.content);
+          setBrandForm(parsed.form);
+          setSocialAccounts(parsed.accounts);
+        }
 
         if (assetIndex.content) {
           const parsed = JSON.parse(assetIndex.content) as { assets?: BrandAsset[] };
@@ -598,13 +838,25 @@ function BrandTab({ agentData }: { agentData: Agent | null }) {
     setError(null);
 
     try {
-      await writeAgentFile(agentData.id, "memory/brand-profile.md", brandContent);
+      const md = serializeBrandProfile(brandForm, socialAccounts);
+      await writeAgentFile(agentData.id, "memory/brand-profile.md", md);
       setMessage("Brand profile saved.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save brand profile");
     } finally {
       setSaving(false);
     }
+  };
+
+  const addSocialAccount = () => {
+    if (!newHandle.trim()) return;
+    setSocialAccounts((prev) => [...prev, { platform: newPlatform, handle: newHandle.trim(), connected: false }]);
+    setNewHandle("");
+    setShowAddAccount(false);
+  };
+
+  const removeSocialAccount = (index: number) => {
+    setSocialAccounts((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleAssetUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -648,185 +900,358 @@ function BrandTab({ agentData }: { agentData: Agent | null }) {
   return (
     <div className="p-8 max-w-4xl">
       <h1 className="text-2xl font-bold mb-1">Brand Profile</h1>
-      <p className="text-[var(--muted)] mb-6">Edit your brand profile and upload source assets for future brand analysis.</p>
+      <p className="text-[var(--muted)] mb-6">Edit your brand profile and manage social accounts.</p>
 
-      <div className="glass rounded-xl p-6 mb-6">
-        <h3 className="font-semibold mb-4">📝 Business Details</h3>
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <span className="text-[var(--muted)]">Business:</span>{" "}
-            <span className="font-medium">{agentData?.business_name || "—"}</span>
-          </div>
-          <div>
-            <span className="text-[var(--muted)]">Website:</span>{" "}
-            <span className="font-medium">{agentData?.website_url || "—"}</span>
-          </div>
-          <div>
-            <span className="text-[var(--muted)]">Slug:</span>{" "}
-            <span className="font-mono text-xs">{agentData?.slug || "—"}</span>
-          </div>
-          <div>
-            <span className="text-[var(--muted)]">Server:</span>{" "}
-            <span className="font-mono text-xs">{agentData?.hetzner_ip || "—"}</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="glass rounded-xl p-6 mb-6">
-        <div className="flex items-center justify-between gap-4 mb-4">
-          <div>
-            <h3 className="font-semibold">🎯 Brand Profile</h3>
-            <p className="text-sm text-[var(--muted)]">Stored on the agent at `memory/brand-profile.md`.</p>
-          </div>
-          <button
-            onClick={saveBrandProfile}
-            disabled={saving || loading}
-            className="px-3 py-1.5 rounded-lg text-xs bg-[var(--accent)] text-white hover:opacity-90 transition-opacity disabled:opacity-40"
-          >
-            {saving ? "Saving..." : "Save profile"}
-          </button>
-        </div>
-
-        {loading ? (
+      {loading ? (
+        <div className="glass rounded-xl p-6 text-center">
+          <div className="w-5 h-5 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
           <p className="text-sm text-[var(--muted)]">Loading brand profile...</p>
-        ) : (
-          <textarea
-            value={brandContent}
-            onChange={(e) => setBrandContent(e.target.value)}
-            className="w-full min-h-[24rem] bg-[var(--surface-light)] border border-[var(--border)] rounded-xl p-4 text-sm text-[var(--foreground)] focus:outline-none focus:border-[var(--accent)]"
-            placeholder="Describe the brand voice, audience, positioning, visuals, colors, constraints, examples, and brand rules..."
-          />
-        )}
-
-        {message && <p className="text-xs text-green-400 mt-3">{message}</p>}
-        {error && <p className="text-xs text-red-400 mt-3">{error}</p>}
-      </div>
-
-      <div className="glass rounded-xl p-6">
-        <h3 className="font-semibold mb-2">📎 Brand Assets</h3>
-        <p className="text-sm text-[var(--muted)] mb-4">
-          Upload logos, screenshots, PDFs, brand decks, packaging shots, and other source material into the agent workspace.
-        </p>
-
-        <label className="upload-zone rounded-xl p-6 border border-dashed border-[var(--border)] block cursor-pointer mb-4">
-          <input type="file" multiple className="hidden" onChange={handleAssetUpload} />
-          <div className="text-center">
-            <div className="text-3xl mb-2">⬆️</div>
-            <p className="text-sm">{uploading ? "Uploading..." : "Upload brand files"}</p>
-            <p className="text-xs text-[var(--muted)] mt-1">Files are stored under `brand-assets/` on the agent.</p>
-          </div>
-        </label>
-
-        {assets.length > 0 ? (
-          <div className="space-y-2">
-            {assets.map((asset) => (
-              <div key={`${asset.path}-${asset.uploadedAt}`} className="flex items-center justify-between gap-3 rounded-lg bg-[var(--surface-light)] px-3 py-2 text-sm">
-                <div className="min-w-0">
-                  <div className="truncate">{asset.name}</div>
-                  <div className="text-xs text-[var(--muted)] font-mono truncate">{asset.path}</div>
+        </div>
+      ) : (
+        <>
+          {/* Business Details */}
+          <div className="glass rounded-xl p-6 mb-6">
+            <h3 className="font-semibold mb-4">📝 Business Details</h3>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-[var(--muted)] mb-1 block">Business Name</label>
+                  <input
+                    className="input-field"
+                    placeholder="Sunrise Coffee Co"
+                    value={brandForm.businessName}
+                    onChange={(e) => setBrandForm((f) => ({ ...f, businessName: e.target.value }))}
+                  />
                 </div>
-                <div className="text-xs text-[var(--muted)] shrink-0">
-                  {(asset.size / 1024).toFixed(1)} KB
+                <div>
+                  <label className="text-xs text-[var(--muted)] mb-1 block">Website URL</label>
+                  <input
+                    className="input-field"
+                    placeholder="https://example.com"
+                    value={brandForm.websiteUrl}
+                    onChange={(e) => setBrandForm((f) => ({ ...f, websiteUrl: e.target.value }))}
+                  />
                 </div>
               </div>
-            ))}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-[var(--muted)] mb-1 block">Industry</label>
+                  <input
+                    className="input-field"
+                    placeholder="e.g. SaaS, E-commerce, Food & Beverage"
+                    value={brandForm.industry}
+                    onChange={(e) => setBrandForm((f) => ({ ...f, industry: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-[var(--muted)] mb-1 block">Posting Goal</label>
+                  <input
+                    className="input-field"
+                    placeholder="3-4 posts per week"
+                    value={brandForm.postingGoal}
+                    onChange={(e) => setBrandForm((f) => ({ ...f, postingGoal: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-[var(--muted)] mb-1 block">Brand Voice / Tone</label>
+                <textarea
+                  className="w-full bg-[var(--surface-light)] border border-[var(--border)] rounded-xl p-3 text-sm text-[var(--foreground)] focus:outline-none focus:border-[var(--accent)] resize-none"
+                  rows={3}
+                  placeholder="Professional but approachable, witty, concise..."
+                  value={brandForm.brandVoice}
+                  onChange={(e) => setBrandForm((f) => ({ ...f, brandVoice: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="text-xs text-[var(--muted)] mb-1 block">Target Audience</label>
+                <textarea
+                  className="w-full bg-[var(--surface-light)] border border-[var(--border)] rounded-xl p-3 text-sm text-[var(--foreground)] focus:outline-none focus:border-[var(--accent)] resize-none"
+                  rows={3}
+                  placeholder="Tech-savvy founders aged 25-40, early adopters..."
+                  value={brandForm.targetAudience}
+                  onChange={(e) => setBrandForm((f) => ({ ...f, targetAudience: e.target.value }))}
+                />
+              </div>
+            </div>
           </div>
-        ) : (
-          <div className="text-center py-6">
-            <div className="text-2xl mb-2">🗂️</div>
-            <p className="text-sm text-[var(--muted)]">No brand assets uploaded yet.</p>
+
+          {/* Social Accounts */}
+          <div className="glass rounded-xl p-6 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold">📱 Social Accounts</h3>
+              <button
+                onClick={saveBrandProfile}
+                disabled={saving}
+                className="px-3 py-1.5 rounded-lg text-xs bg-[var(--accent)] text-white hover:opacity-90 transition-opacity disabled:opacity-40"
+              >
+                {saving ? "Saving..." : "Save profile"}
+              </button>
+            </div>
+
+            {socialAccounts.length > 0 ? (
+              <div className="space-y-2 mb-4">
+                {socialAccounts.map((account, i) => (
+                  <div key={i} className="flex items-center gap-3 rounded-lg bg-[var(--surface-light)] px-4 py-3">
+                    <span className="text-lg w-6 text-center">{PLATFORM_ICONS[account.platform] || "🌐"}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate">{account.handle}</div>
+                      <div className="text-xs text-[var(--muted)]">{account.platform}</div>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs flex-shrink-0">
+                      <span className="px-2 py-0.5 rounded-full bg-[rgba(34,197,94,0.15)] text-green-400 border border-[rgba(34,197,94,0.3)]">
+                        👁️ Monitor
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full bg-[var(--surface)] text-[var(--muted)] border border-[var(--border)]">
+                        📝 Connect →
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full bg-[var(--surface)] text-[var(--muted)] border border-[var(--border)]">
+                        📊 —
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => removeSocialAccount(i)}
+                      className="text-red-400/60 hover:text-red-400 transition-colors text-sm ml-2"
+                      title="Remove account"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-4 mb-4">
+                <p className="text-sm text-[var(--muted)]">No social accounts added yet.</p>
+              </div>
+            )}
+
+            {showAddAccount ? (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-[var(--surface-light)] border border-[var(--border)]">
+                <select
+                  value={newPlatform}
+                  onChange={(e) => setNewPlatform(e.target.value)}
+                  className="bg-[var(--surface)] border border-[var(--border)] rounded-lg px-2 py-1.5 text-sm text-[var(--foreground)] focus:outline-none focus:border-[var(--accent)]"
+                >
+                  {PLATFORM_OPTIONS.map((p) => (
+                    <option key={p} value={p}>{PLATFORM_ICONS[p]} {p}</option>
+                  ))}
+                </select>
+                <input
+                  className="input-field !py-1.5 text-sm flex-1"
+                  placeholder="@handle or URL"
+                  value={newHandle}
+                  onChange={(e) => setNewHandle(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") addSocialAccount(); }}
+                  autoFocus
+                />
+                <button
+                  onClick={addSocialAccount}
+                  className="px-3 py-1.5 rounded-lg text-xs bg-[var(--accent)] text-white hover:opacity-90 transition-opacity"
+                >
+                  Add
+                </button>
+                <button
+                  onClick={() => { setShowAddAccount(false); setNewHandle(""); }}
+                  className="px-3 py-1.5 rounded-lg text-xs bg-[var(--surface)] text-[var(--muted)] hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowAddAccount(true)}
+                className="w-full py-2.5 rounded-lg text-sm border border-dashed border-[var(--border)] text-[var(--muted)] hover:text-white hover:border-[var(--accent)] transition-colors"
+              >
+                + Add Account
+              </button>
+            )}
+
+            {message && <p className="text-xs text-green-400 mt-3">{message}</p>}
+            {error && <p className="text-xs text-red-400 mt-3">{error}</p>}
           </div>
-        )}
-      </div>
+
+          {/* Brand Assets */}
+          <div className="glass rounded-xl p-6">
+            <h3 className="font-semibold mb-2">📎 Brand Assets</h3>
+            <p className="text-sm text-[var(--muted)] mb-4">
+              Upload logos, screenshots, PDFs, brand decks, packaging shots, and other source material into the agent workspace.
+            </p>
+
+            <label className="upload-zone rounded-xl p-6 border border-dashed border-[var(--border)] block cursor-pointer mb-4">
+              <input type="file" multiple className="hidden" onChange={handleAssetUpload} />
+              <div className="text-center">
+                <div className="text-3xl mb-2">⬆️</div>
+                <p className="text-sm">{uploading ? "Uploading..." : "Upload brand files"}</p>
+                <p className="text-xs text-[var(--muted)] mt-1">Files are stored under `brand-assets/` on the agent.</p>
+              </div>
+            </label>
+
+            {assets.length > 0 ? (
+              <div className="space-y-2">
+                {assets.map((asset) => (
+                  <div key={`${asset.path}-${asset.uploadedAt}`} className="flex items-center justify-between gap-3 rounded-lg bg-[var(--surface-light)] px-3 py-2 text-sm">
+                    <div className="min-w-0">
+                      <div className="truncate">{asset.name}</div>
+                      <div className="text-xs text-[var(--muted)] font-mono truncate">{asset.path}</div>
+                    </div>
+                    <div className="text-xs text-[var(--muted)] shrink-0">
+                      {(asset.size / 1024).toFixed(1)} KB
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-6">
+                <div className="text-2xl mb-2">🗂️</div>
+                <p className="text-sm text-[var(--muted)]">No brand assets uploaded yet.</p>
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
 /* ─── CALENDAR TAB ─── */
-function CalendarTab() {
-  return (
-    <div className="p-8 max-w-4xl">
-      <h1 className="text-2xl font-bold mb-1">Content Calendar</h1>
-      <p className="text-[var(--muted)] mb-6">Managed by your agent. Posts are drafted, approved, then scheduled.</p>
-      <div className="glass rounded-xl p-6 text-center">
-        <div className="text-4xl mb-3">📅</div>
-        <h2 className="text-lg font-semibold mb-2">No scheduled content yet</h2>
-        <p className="text-sm text-[var(--muted)]">Ask your agent to create a content calendar.</p>
-      </div>
-    </div>
-  );
-}
-
-/* ─── ANALYTICS TAB ─── */
-function AnalyticsTab() {
-  return (
-    <div className="p-8 max-w-4xl">
-      <h1 className="text-2xl font-bold mb-1">Analytics</h1>
-      <p className="text-[var(--muted)] mb-6">Performance tracking across your social accounts</p>
-      <div className="glass rounded-xl p-6 text-center">
-        <div className="text-4xl mb-3">📊</div>
-        <h2 className="text-lg font-semibold mb-2">Analytics coming soon</h2>
-        <p className="text-sm text-[var(--muted)]">Connect your social accounts to track engagement.</p>
-      </div>
-    </div>
-  );
-}
-
-/* ─── RESEARCH TAB ─── */
-function ResearchTab({ agentId }: { agentId: string }) {
-  const [content, setContent] = useState<string | null>(null);
+function CalendarTab({ agentId }: { agentId: string }) {
+  const [entries, setEntries] = useState<CalendarEntry[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!agentId) return;
-    readAgentFile(agentId, "memory/research/latest.md")
-      .then((res) => { if (res.content) setContent(res.content); })
-      .catch(() => {});
+    setLoading(true);
+    readAgentFile(agentId, "memory/content-calendar.md")
+      .then((res) => {
+        if (res.content) {
+          setEntries(parseContentCalendar(res.content));
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, [agentId]);
 
   return (
     <div className="p-8 max-w-4xl">
-      <h1 className="text-2xl font-bold mb-1">Market Research</h1>
-      <p className="text-[var(--muted)] mb-6">Competitor intel and market trends</p>
-      {content ? (
-        <div className="glass rounded-xl p-6">
-          <pre className="whitespace-pre-wrap text-sm text-[var(--muted)] overflow-auto">{content}</pre>
+      <h1 className="text-2xl font-bold mb-1">Content Calendar</h1>
+      <p className="text-[var(--muted)] mb-6">Managed by your agent. Posts are drafted, approved, then scheduled.</p>
+
+      {loading ? (
+        <div className="glass rounded-xl p-6 text-center">
+          <div className="w-5 h-5 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+          <p className="text-sm text-[var(--muted)]">Loading calendar...</p>
+        </div>
+      ) : entries.length > 0 ? (
+        <div className="space-y-3">
+          {entries.map((entry, i) => (
+            <div key={i} className="glass rounded-xl p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-mono text-[var(--muted)] bg-[var(--surface-light)] px-2 py-1 rounded">{entry.date}</span>
+                  <span className="text-xs font-medium text-[var(--foreground)]">{entry.platform}</span>
+                </div>
+                <span className={`px-2.5 py-1 rounded-full text-xs ${
+                  entry.statusEmoji === "🚀" ? "bg-[rgba(34,197,94,0.15)] text-green-400 border border-[rgba(34,197,94,0.3)]" :
+                  entry.statusEmoji === "✅" ? "bg-[rgba(59,130,246,0.15)] text-blue-400 border border-[rgba(59,130,246,0.3)]" :
+                  "bg-[rgba(234,179,8,0.15)] text-yellow-400 border border-[rgba(234,179,8,0.3)]"
+                }`}>
+                  {entry.statusEmoji} {entry.status}
+                </span>
+              </div>
+              <p className="text-sm text-[var(--foreground)]">{entry.draft}</p>
+            </div>
+          ))}
         </div>
       ) : (
         <div className="glass rounded-xl p-6 text-center">
-          <div className="text-4xl mb-3">🔍</div>
-          <h2 className="text-lg font-semibold mb-2">No research yet</h2>
-          <p className="text-sm text-[var(--muted)]">Ask your agent to research your competitors via Telegram.</p>
+          <div className="text-4xl mb-3">📅</div>
+          <h2 className="text-lg font-semibold mb-2">No posts scheduled</h2>
+          <p className="text-sm text-[var(--muted)]">Ask your agent to create a content calendar.</p>
         </div>
       )}
     </div>
   );
 }
 
-/* ─── SEO TAB ─── */
-function SEOTab({ agentId }: { agentId: string }) {
-  const [content, setContent] = useState<string | null>(null);
+/* ─── MARKET INTEL TAB ─── */
+function MarketIntelTab({ agentId }: { agentId: string }) {
+  const [competitors, setCompetitors] = useState<CompetitorEntry[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!agentId) return;
-    readAgentFile(agentId, "memory/seo/audit.md")
-      .then((res) => { if (res.content) setContent(res.content); })
-      .catch(() => {});
+    setLoading(true);
+    readAgentFile(agentId, "memory/competitors.md")
+      .then((res) => {
+        if (res.content) {
+          setCompetitors(parseCompetitors(res.content));
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, [agentId]);
 
   return (
     <div className="p-8 max-w-4xl">
-      <h1 className="text-2xl font-bold mb-1">SEO Audit</h1>
-      <p className="text-[var(--muted)] mb-6">Website analysis and recommendations</p>
-      {content ? (
-        <div className="glass rounded-xl p-6">
-          <pre className="whitespace-pre-wrap text-sm text-[var(--muted)] overflow-auto">{content}</pre>
+      <h1 className="text-2xl font-bold mb-1">Market Intel</h1>
+      <p className="text-[var(--muted)] mb-6">Competitor intelligence and market research</p>
+
+      {loading ? (
+        <div className="glass rounded-xl p-6 text-center">
+          <div className="w-5 h-5 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+          <p className="text-sm text-[var(--muted)]">Loading intel...</p>
         </div>
       ) : (
-        <div className="glass rounded-xl p-6 text-center">
-          <div className="text-4xl mb-3">🔎</div>
-          <h2 className="text-lg font-semibold mb-2">No audit yet</h2>
-          <p className="text-sm text-[var(--muted)]">Ask your agent to run an SEO audit via Telegram.</p>
-        </div>
+        <>
+          {/* Tracked Competitors */}
+          <div className="mb-8">
+            <h3 className="text-sm font-semibold text-[var(--muted)] uppercase tracking-wide mb-3">Tracked Competitors</h3>
+            {competitors.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {competitors.map((comp, i) => (
+                  <div key={i} className="glass rounded-xl p-5">
+                    <div className="flex items-start justify-between mb-2">
+                      <h4 className="font-semibold text-sm">{comp.name}</h4>
+                      {comp.website && (
+                        <a
+                          href={comp.website.startsWith("http") ? comp.website : `https://${comp.website}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-[var(--accent-light)] hover:underline flex-shrink-0"
+                        >
+                          🔗 Website
+                        </a>
+                      )}
+                    </div>
+                    {comp.description && (
+                      <p className="text-sm text-[var(--muted)] mb-2">{comp.description}</p>
+                    )}
+                    {comp.differentiator && (
+                      <div className="text-xs px-2 py-1 rounded bg-[var(--surface-light)] text-[var(--accent-light)] inline-block">
+                        ⚡ {comp.differentiator}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="glass rounded-xl p-6 text-center">
+                <div className="text-3xl mb-2">🔍</div>
+                <p className="text-sm text-[var(--muted)]">No competitors tracked yet</p>
+              </div>
+            )}
+          </div>
+
+          {/* Research Reports */}
+          <div>
+            <h3 className="text-sm font-semibold text-[var(--muted)] uppercase tracking-wide mb-3">Research Reports</h3>
+            <div className="glass rounded-xl p-6 text-center">
+              <div className="text-3xl mb-2">📑</div>
+              <p className="text-sm text-[var(--muted)]">Ask your agent to research competitors</p>
+              <p className="text-xs text-[var(--muted)] mt-1">Reports will appear here once generated.</p>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
@@ -846,6 +1271,12 @@ function SettingsTab({ agentData, liveStatus, setLiveStatus, setHasAgent }: {
   const [runtimeLoading, setRuntimeLoading] = useState(false);
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
   const [updateMessage, setUpdateMessage] = useState<string | null>(null);
+  const [toolToggles, setToolToggles] = useState({
+    webSearch: false,
+    imageGen: false,
+    emailOutreach: false,
+    deepSearch: true,
+  });
 
   const refreshRuntime = useCallback(async () => {
     if (!agentData?.id) return;
@@ -913,6 +1344,10 @@ function SettingsTab({ agentData, liveStatus, setLiveStatus, setHasAgent }: {
     } finally {
       setUpdating(false);
     }
+  };
+
+  const toggleTool = (key: keyof typeof toolToggles) => {
+    setToolToggles((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
   return (
@@ -1001,6 +1436,68 @@ function SettingsTab({ agentData, liveStatus, setLiveStatus, setHasAgent }: {
           }`}>
             {(agentData?.config as Record<string, unknown>)?.telegramBotToken ? "🟢 Connected" : "Not set"}
           </span>
+        </div>
+      </div>
+
+      {/* Tools & Integrations */}
+      <div className="mb-8">
+        <h3 className="text-sm font-semibold text-[var(--muted)] uppercase tracking-wide mb-3">Tools & Integrations</h3>
+        <div className="glass rounded-xl divide-y divide-[var(--border)]">
+          {([
+            {
+              key: "webSearch" as const,
+              icon: "🔍",
+              name: "Web Search (Brave API)",
+              desc: "Live competitor monitoring, trend detection",
+              status: toolToggles.webSearch ? "Enabled" : "Not configured",
+              included: false,
+            },
+            {
+              key: "imageGen" as const,
+              icon: "🎨",
+              name: "Image Generation (Higgsfield)",
+              desc: "AI-generated visuals for posts",
+              status: toolToggles.imageGen ? "Enabled" : "Not configured",
+              included: false,
+            },
+            {
+              key: "emailOutreach" as const,
+              icon: "📧",
+              name: "Email Outreach (AgentMail)",
+              desc: "Send newsletters and outreach",
+              status: toolToggles.emailOutreach ? "Enabled" : "Not configured",
+              included: false,
+            },
+            {
+              key: "deepSearch" as const,
+              icon: "🔎",
+              name: "Deep Search (Tavily)",
+              desc: "Advanced web research",
+              status: "Included with plan ✅",
+              included: true,
+            },
+          ]).map((tool) => (
+            <div key={tool.key} className="flex items-center gap-4 p-4">
+              <span className="text-xl w-8 text-center">{tool.icon}</span>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-sm">{tool.name}</div>
+                <div className="text-xs text-[var(--muted)]">{tool.desc}</div>
+                <div className={`text-xs mt-0.5 ${tool.included || toolToggles[tool.key] ? "text-green-400" : "text-[var(--muted)]"}`}>
+                  Status: {tool.status}
+                </div>
+              </div>
+              <button
+                onClick={() => toggleTool(tool.key)}
+                className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${
+                  toolToggles[tool.key] ? "bg-[var(--accent)]" : "bg-[var(--surface-light)] border border-[var(--border)]"
+                }`}
+              >
+                <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                  toolToggles[tool.key] ? "translate-x-5" : "translate-x-0.5"
+                }`}></div>
+              </button>
+            </div>
+          ))}
         </div>
       </div>
 
