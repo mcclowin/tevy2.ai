@@ -52,6 +52,9 @@ export const env = {
   AGENT_IMAGE: optional("AGENT_IMAGE", "ghcr.io/mcclowin/tevy2.ai/agent:latest"),
   DEFAULT_MODEL: optional("DEFAULT_MODEL", "anthropic/claude-sonnet-4-20250514"),
 
+  // Nango (social media OAuth)
+  NANGO_SECRET_KEY: optional("NANGO_SECRET_KEY", ""),
+
   // Frontend
   FRONTEND_URL: optional("FRONTEND_URL", "http://localhost:3000"),
 
