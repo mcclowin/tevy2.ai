@@ -739,36 +739,7 @@ function HomeTab({ agentData, liveStatus }: { agentData: Agent | null; liveStatu
           )}
         </div>
 
-        {/* Terminal-style chat box */}
-        <div className="rounded-xl overflow-hidden border border-[var(--border)]">
-          <div className="flex items-center gap-2 px-4 py-2 bg-[#1a1a2e] border-b border-[var(--border)]">
-            <div className="flex gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-full bg-red-500/60"></div>
-              <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/60"></div>
-              <div className="w-2.5 h-2.5 rounded-full bg-green-500/60"></div>
-            </div>
-            <span className="text-xs text-[var(--muted)] font-mono ml-2">agent-channel</span>
-          </div>
-          <div className="bg-[#0d0d1a] p-4 font-mono text-sm" style={{ height: "200px", display: "flex", flexDirection: "column" }}>
-            <div className="flex-1 overflow-auto">
-              <div className="text-[var(--muted)]">
-                <span className="text-green-400/60">$</span> Dashboard chat is disabled.
-              </div>
-              <div className="text-[var(--muted)] mt-1">
-                <span className="text-green-400/60">$</span> Use your Telegram bot to chat with the agent.
-              </div>
-            </div>
-            <div className="flex items-center gap-2 pt-2 border-t border-[var(--border)]">
-              <span className="text-green-400/60">$</span>
-              <input
-                type="text"
-                disabled
-                placeholder="Chat coming soon..."
-                className="flex-1 bg-transparent text-sm font-mono text-[var(--foreground)] placeholder-[var(--muted)] focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-              />
-            </div>
-          </div>
-        </div>
+
       </div>
     </div>
   );
@@ -977,17 +948,6 @@ function BrandTab({ agentData }: { agentData: Agent | null }) {
                       <div className="text-sm font-medium truncate">{account.handle}</div>
                       <div className="text-xs text-[var(--muted)]">{account.platform}</div>
                     </div>
-                    <div className="flex items-center gap-2 text-xs flex-shrink-0">
-                      <span className="px-2 py-0.5 rounded-full bg-[rgba(34,197,94,0.15)] text-green-400 border border-[rgba(34,197,94,0.3)]">
-                        👁️ Monitor
-                      </span>
-                      <span className="px-2 py-0.5 rounded-full bg-[var(--surface)] text-[var(--muted)] border border-[var(--border)]">
-                        📝 Connect →
-                      </span>
-                      <span className="px-2 py-0.5 rounded-full bg-[var(--surface)] text-[var(--muted)] border border-[var(--border)]">
-                        📊 —
-                      </span>
-                    </div>
                     <button
                       onClick={() => removeSocialAccount(i)}
                       className="text-red-400/60 hover:text-red-400 transition-colors text-sm ml-2"
@@ -1002,7 +962,7 @@ function BrandTab({ agentData }: { agentData: Agent | null }) {
               <div className="text-center py-4 mb-4">
                 <p className="text-sm text-[var(--muted)]">No social accounts added yet.</p>
               </div>
-            )}
+            )
 
             <div className="flex items-center gap-2">
               <select
