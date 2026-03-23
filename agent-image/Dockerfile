@@ -1,5 +1,5 @@
-# tevy2.ai Agent Image — Option C
-# Single shared image for all user instances.
+# tevy2.ai Agent Image v2
+# Marketing concierge bot with pre-configured skills, templates, and behaviour.
 # Differentiated by env vars at runtime.
 # Auto-rebuilt via GitHub Actions when OpenClaw updates.
 
@@ -19,16 +19,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN npm install -g openclaw@${OPENCLAW_VERSION}
 
 # Create workspace directory
-RUN mkdir -p /workspace/skills /workspace/memory
+RUN mkdir -p /workspace/skills /workspace/memory /workspace/brand-assets
 
 # Copy pre-configured skills
 COPY skills/ /workspace/skills/
 
-# Copy templates to BOTH locations:
-# /workspace/templates/ — for backwards compatibility (no volume mount)
-# /opt/tevy2-templates/ — safe location that survives volume mounts on /workspace
-COPY templates/ /workspace/templates/
+# Copy templates to safe location that survives volume mounts
 COPY templates/ /opt/tevy2-templates/
+
+# Copy version file
+COPY VERSION /opt/tevy2-version.txt
 
 # Copy entrypoint
 COPY entrypoint.sh /entrypoint.sh

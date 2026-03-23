@@ -243,7 +243,7 @@ const NAV_ITEMS = [
   { id: "brand", icon: "🎯", label: "Brand" },
   { id: "calendar", icon: "📅", label: "Calendar" },
   { id: "market-intel", icon: "🔍", label: "Market Intel" },
-  { id: "settings", icon: "⚙️", label: "Settings" },
+  { id: "settings", icon: "⚙️", label: "Agent Settings" },
 ];
 
 export default function DashboardPage() {
@@ -1376,8 +1376,8 @@ function SettingsTab({ agentData, liveStatus, setLiveStatus, setHasAgent }: {
 
   return (
     <div className="p-8 max-w-4xl">
-      <h1 className="text-2xl font-bold mb-1">Settings</h1>
-      <p className="text-[var(--muted)] mb-8">Manage your agent and account.</p>
+      <h1 className="text-2xl font-bold mb-1">Agent Settings</h1>
+      <p className="text-[var(--muted)] mb-8">Manage your agent, connections, and account.</p>
 
       {/* Agent info */}
       <div className="mb-8">
@@ -1445,7 +1445,7 @@ function SettingsTab({ agentData, liveStatus, setLiveStatus, setHasAgent }: {
       {/* Chat Channels */}
       <div className="mb-8">
         <h3 className="text-sm font-semibold text-[var(--muted)] uppercase tracking-wide mb-3">Chat Channels</h3>
-        <p className="text-xs text-[var(--muted)] mb-3">This is how you talk to your bot. Connect a messaging app to chat with your marketing agent.</p>
+        <p className="text-xs text-[var(--muted)] mb-3">How <strong>you</strong> chat with your bot. This is your private communication channel — not visible to your customers.</p>
         <div className="glass rounded-xl divide-y divide-[var(--border)]">
           {([
             {
@@ -1527,6 +1527,76 @@ function SettingsTab({ agentData, liveStatus, setLiveStatus, setHasAgent }: {
                   Connect
                 </button>
               )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Social Accounts — accounts the bot manages */}
+      <div className="mb-8">
+        <h3 className="text-sm font-semibold text-[var(--muted)] uppercase tracking-wide mb-3">Social Accounts</h3>
+        <p className="text-xs text-[var(--muted)] mb-3">Accounts your bot manages and posts to on your behalf. These are separate from chat channels.</p>
+        <div className="glass rounded-xl divide-y divide-[var(--border)]">
+          {([
+            {
+              icon: "📸",
+              name: "Instagram",
+              desc: "Post images, reels, and stories to your business Instagram",
+              color: "#E4405F",
+              connected: false,
+              requiresBusiness: true,
+            },
+            {
+              icon: "💼",
+              name: "LinkedIn",
+              desc: "Post updates to your company page or personal profile",
+              color: "#0A66C2",
+              connected: false,
+              requiresBusiness: false,
+            },
+            {
+              icon: "𝕏",
+              name: "X / Twitter",
+              desc: "Post tweets and threads from your business account",
+              color: "#000000",
+              connected: false,
+              requiresBusiness: false,
+            },
+            {
+              icon: "🎵",
+              name: "TikTok",
+              desc: "Post videos to your TikTok business account",
+              color: "#000000",
+              connected: false,
+              requiresBusiness: true,
+            },
+            {
+              icon: "📘",
+              name: "Facebook",
+              desc: "Post to your Facebook Page",
+              color: "#1877F2",
+              connected: false,
+              requiresBusiness: true,
+            },
+          ]).map((account) => (
+            <div key={account.name} className="flex items-center gap-4 p-4">
+              <span className="text-xl w-8 text-center">{account.icon}</span>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-sm">{account.name}</div>
+                <div className="text-xs text-[var(--muted)]">{account.desc}</div>
+                {account.requiresBusiness && (
+                  <div className="text-xs text-yellow-500/70 mt-0.5">Requires business account</div>
+                )}
+              </div>
+              <button
+                className={`px-3 py-1.5 rounded-lg text-xs transition-colors ${
+                  account.connected
+                    ? "bg-green-500/20 text-green-400 border border-green-500/30"
+                    : "bg-[var(--surface-light)] text-[var(--muted)] hover:text-white border border-[var(--border)]"
+                }`}
+              >
+                {account.connected ? "Connected ✓" : "Connect"}
+              </button>
             </div>
           ))}
         </div>
