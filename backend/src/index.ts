@@ -14,6 +14,7 @@ import { env } from "./env.js";
 import authRoutes from "./routes/auth.js";
 import agentRoutes from "./routes/agents.js";
 import socialRoutes from "./routes/social.js";
+import channelRoutes from "./routes/channels.js";
 
 const app = new Hono();
 
@@ -35,6 +36,7 @@ app.get("/health", (c) => c.json({ status: "ok", service: "tevy2-backend" }));
 // Routes
 app.route("/api/auth", authRoutes);
 app.route("/api/agents", agentRoutes);
+app.route("/api/agents", channelRoutes);  // /api/agents/:id/channels/*
 app.route("/api/social", socialRoutes);
 
 // 404

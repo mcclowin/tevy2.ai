@@ -158,3 +158,44 @@ export function execOnAgent(id: string, command: string) {
     { method: "POST", body: { command } }
   );
 }
+
+// ── WhatsApp Channel ───────────────────────────────────────────────────
+
+export type WhatsAppStatus = {
+  configured: boolean;
+  linked: boolean;
+  hasCreds: boolean;
+  running: boolean;
+  statusLine: string | null;
+  message: string;
+};
+
+export type WhatsAppQR = {
+  linked: boolean;
+  qr: string | null;
+  qrType?: "text" | "data";
+  rawOutput?: string;
+  message: string;
+};
+
+export function setupWhatsApp(agentId: string, data: { phoneNumber?: string; dmPolicy?: string }) {
+  return api<{ success: boolean; message: string }>(
+    `/api/agents/${agentId}/channels/whatsapp/setup`,
+    { method: "POST", body: data }
+  );
+}
+
+export function getWhatsAppStatus(agentId: string) {
+  return api<WhatsAppStatus>(`/api/agents/${agentId}/channels/whatsapp/status`);
+}
+
+export function getWhatsAppQR(agentId: string) {
+  return api<WhatsAppQR>(`/api/agents/${agentId}/channels/whatsapp/qr`);
+}
+
+export function disconnectWhatsApp(agentId: string) {
+  return api<{ success: boolean; message: string }>(
+    `/api/agents/${agentId}/channels/whatsapp/disconnect`,
+    { method: "POST" }
+  );
+}

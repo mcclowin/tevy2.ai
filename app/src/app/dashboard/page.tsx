@@ -6,7 +6,8 @@ import Link from "next/link";
 import {
   createAgent, listAgents, getBootStatus, getAgentRuntime, updateAgent,
   readAgentFile, writeAgentFile, deleteAgent, startAgent, stopAgent,
-  type Agent, type AgentRuntime,
+  setupWhatsApp, getWhatsAppStatus, getWhatsAppQR, disconnectWhatsApp,
+  type Agent, type AgentRuntime, type WhatsAppStatus, type WhatsAppQR,
 } from "@/lib/api";
 import { signOut, isAuthenticated, getUser } from "@/lib/auth";
 
@@ -573,8 +574,20 @@ function OnboardingPanel({ onComplete }: { onComplete: (agent: Agent) => void })
           </div>
         )}
 
+        {/* WhatsApp option (setup after deploy via Settings) */}
+        <div className="w-full glass rounded-xl p-4 mb-3 border border-transparent hover:border-[var(--border)] opacity-80">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-lg bg-[#25D366] flex items-center justify-center text-white text-xl">📱</div>
+            <div className="flex-1">
+              <div className="font-semibold text-sm">WhatsApp</div>
+              <p className="text-xs text-[var(--muted)]">Connect via QR code after deploy — go to Settings → Chat Channels</p>
+            </div>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--surface-light)] text-[var(--muted)]">Post-deploy</span>
+          </div>
+        </div>
+
         <div className="flex gap-2">
-          {[{ icon: "📱", name: "WhatsApp" }, { icon: "🎮", name: "Discord" }, { icon: "💬", name: "Slack" }].map((ch) => (
+          {[{ icon: "🎮", name: "Discord" }, { icon: "💬", name: "Slack" }].map((ch) => (
             <div key={ch.name} className="glass rounded-lg px-3 py-2 opacity-40 text-xs flex items-center gap-1.5">
               <span>{ch.icon}</span>
               <span className="text-[var(--muted)]">{ch.name} — soon</span>
@@ -822,7 +835,6 @@ function BrandTab({ agentData }: { agentData: Agent | null }) {
     if (!newHandle.trim()) return;
     setSocialAccounts((prev) => [...prev, { platform: newPlatform, handle: newHandle.trim(), connected: false }]);
     setNewHandle("");
-    setShowAddAccount(false);
   };
 
   const removeSocialAccount = (index: number) => {
@@ -962,7 +974,7 @@ function BrandTab({ agentData }: { agentData: Agent | null }) {
               <div className="text-center py-4 mb-4">
                 <p className="text-sm text-[var(--muted)]">No social accounts added yet.</p>
               </div>
-            )
+            )}
 
             <div className="flex items-center gap-2">
               <select
@@ -1241,6 +1253,213 @@ function MarketIntelTab({ agentId }: { agentId: string }) {
   );
 }
 
+/* ─── WHATSAPP CHANNEL ROW ─── */
+function WhatsAppChannelRow({ agentId, agentConfig }: { agentId: string; agentConfig: Record<string, unknown> }) {
+  const [showSetup, setShowSetup] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [setting, setSetting] = useState(false);
+  const [waStatus, setWaStatus] = useState<WhatsAppStatus | null>(null);
+  const [qrData, setQrData] = useState<WhatsAppQR | null>(null);
+  const [polling, setPolling] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [disconnecting, setDisconnecting] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Check status on mount
+  useEffect(() => {
+    if (!agentId) return;
+    getWhatsAppStatus(agentId)
+      .then(setWaStatus)
+      .catch(() => {});
+  }, [agentId]);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, []);
+
+  const startSetup = async () => {
+    setSetting(true);
+    setError(null);
+    try {
+      await setupWhatsApp(agentId, {
+        phoneNumber: phoneNumber || undefined,
+        dmPolicy: phoneNumber ? "allowlist" : "open",
+      });
+
+      // Start polling for QR code
+      setPolling(true);
+      let attempts = 0;
+      pollRef.current = setInterval(async () => {
+        attempts++;
+        try {
+          const qr = await getWhatsAppQR(agentId);
+          setQrData(qr);
+
+          if (qr.linked) {
+            // Successfully linked!
+            if (pollRef.current) clearInterval(pollRef.current);
+            setPolling(false);
+            setSetting(false);
+            setShowSetup(false);
+            // Refresh status
+            const status = await getWhatsAppStatus(agentId);
+            setWaStatus(status);
+          }
+        } catch {
+          // Keep polling
+        }
+
+        if (attempts > 60) {
+          // 2 minutes timeout
+          if (pollRef.current) clearInterval(pollRef.current);
+          setPolling(false);
+          setSetting(false);
+          setError("QR code timed out. Try again.");
+        }
+      }, 2000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Setup failed");
+      setSetting(false);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    if (!confirm("Disconnect WhatsApp? You'll need to scan QR again to reconnect.")) return;
+    setDisconnecting(true);
+    try {
+      await disconnectWhatsApp(agentId);
+      setWaStatus(null);
+      setQrData(null);
+      setShowSetup(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Disconnect failed");
+    } finally {
+      setDisconnecting(false);
+    }
+  };
+
+  const isConnected = waStatus?.linked || waStatus?.running || (agentConfig?.whatsappEnabled && waStatus?.hasCreds);
+
+  return (
+    <>
+      <div className="flex items-center gap-4 p-4">
+        <div className="w-10 h-10 rounded-lg flex items-center justify-center text-white text-xl flex-shrink-0" style={{ backgroundColor: "#25D366" }}>📱</div>
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold text-sm flex items-center gap-2">
+            WhatsApp
+            {!isConnected && <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface-light)] text-[var(--muted)]">Popular</span>}
+          </div>
+          <div className="text-xs text-[var(--muted)]">Link your WhatsApp — scan QR code to connect</div>
+        </div>
+        {isConnected ? (
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className="px-2.5 py-1 rounded-full text-xs bg-[rgba(34,197,94,0.15)] text-green-400 border border-[rgba(34,197,94,0.3)]">🟢 Connected</span>
+            <button
+              onClick={handleDisconnect}
+              disabled={disconnecting}
+              className="px-2 py-1 rounded text-xs text-red-400/60 hover:text-red-400 transition-colors"
+            >
+              {disconnecting ? "..." : "✕"}
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowSetup(!showSetup)}
+            className="px-3 py-1.5 rounded-lg text-xs bg-[var(--accent)] text-white hover:opacity-90 transition-opacity flex-shrink-0"
+          >
+            Connect
+          </button>
+        )}
+      </div>
+
+      {/* Setup panel — shown inline below the row */}
+      {showSetup && !isConnected && (
+        <div className="px-4 pb-4">
+          <div className="glass rounded-xl p-5 ml-14">
+            {!polling && !qrData?.qr ? (
+              <>
+                <h4 className="font-semibold text-sm mb-3">Connect WhatsApp</h4>
+                <div className="mb-4">
+                  <label className="text-xs text-[var(--muted)] mb-1 block">Your phone number <span className="text-[var(--muted)]">(optional, for access control)</span></label>
+                  <input
+                    className="input-field text-sm"
+                    placeholder="+44 7XXX XXXXXX"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    disabled={setting}
+                  />
+                  <p className="text-xs text-[var(--muted)] mt-1">If provided, only this number can message the bot. Leave empty for open access.</p>
+                </div>
+                <button
+                  onClick={startSetup}
+                  disabled={setting}
+                  className="btn-primary text-sm py-2 px-4"
+                >
+                  {setting ? (
+                    <span className="flex items-center gap-2">
+                      <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                      Setting up...
+                    </span>
+                  ) : "Generate QR Code"}
+                </button>
+              </>
+            ) : qrData?.linked ? (
+              <div className="text-center py-4">
+                <div className="text-3xl mb-2">✅</div>
+                <p className="font-semibold">WhatsApp linked!</p>
+                <p className="text-sm text-[var(--muted)]">Your bot is now accessible via WhatsApp.</p>
+              </div>
+            ) : (
+              <div className="text-center">
+                <h4 className="font-semibold text-sm mb-3">Scan QR Code</h4>
+                <p className="text-xs text-[var(--muted)] mb-4">Open WhatsApp → Settings → Linked Devices → Link a Device</p>
+
+                {qrData?.qr && qrData.qrType === "text" ? (
+                  <pre className="bg-white text-black p-2 rounded-lg text-[6px] leading-[7px] font-mono inline-block mx-auto mb-4 select-none" style={{ letterSpacing: "-0.5px" }}>
+                    {qrData.qr}
+                  </pre>
+                ) : qrData?.qr && qrData.qrType === "data" ? (
+                  <div className="mb-4">
+                    <p className="text-sm text-[var(--muted)]">QR data ready — rendering...</p>
+                    <code className="text-xs break-all">{qrData.qr.slice(0, 50)}...</code>
+                  </div>
+                ) : (
+                  <div className="py-8">
+                    <div className="w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                    <p className="text-sm text-[var(--muted)]">{qrData?.message || "Generating QR code..."}</p>
+                  </div>
+                )}
+
+                <p className="text-xs text-[var(--muted)]">
+                  {polling ? "Waiting for you to scan..." : ""}
+                </p>
+
+                <button
+                  onClick={() => {
+                    if (pollRef.current) clearInterval(pollRef.current);
+                    setPolling(false);
+                    setSetting(false);
+                    setQrData(null);
+                    setShowSetup(false);
+                  }}
+                  className="mt-4 text-xs text-[var(--muted)] hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+
+            {error && (
+              <p className="text-xs text-red-400 mt-3">{error}</p>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 /* ─── SETTINGS TAB ─── */
 function SettingsTab({ agentData, liveStatus, setLiveStatus, setHasAgent }: {
   agentData: Agent | null;
@@ -1407,86 +1626,41 @@ function SettingsTab({ agentData, liveStatus, setLiveStatus, setHasAgent }: {
         <h3 className="text-sm font-semibold text-[var(--muted)] uppercase tracking-wide mb-3">Chat Channels</h3>
         <p className="text-xs text-[var(--muted)] mb-3">How <strong>you</strong> chat with your bot. This is your private communication channel — not visible to your customers.</p>
         <div className="glass rounded-xl divide-y divide-[var(--border)]">
+          {/* Telegram */}
+          <div className="flex items-center gap-4 p-4">
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center text-white text-xl flex-shrink-0" style={{ backgroundColor: "#2AABEE" }}>✈️</div>
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold text-sm">Telegram</div>
+              <div className="text-xs text-[var(--muted)]">Chat with your bot from any device</div>
+            </div>
+            {(agentData?.config as Record<string, unknown>)?.telegramBotToken ? (
+              <span className="px-2.5 py-1 rounded-full text-xs bg-[rgba(34,197,94,0.15)] text-green-400 border border-[rgba(34,197,94,0.3)] flex-shrink-0">🟢 Connected</span>
+            ) : (
+              <button className="px-3 py-1.5 rounded-lg text-xs bg-[var(--surface-light)] text-[var(--muted)] hover:text-white border border-[var(--border)] transition-colors flex-shrink-0">Connect</button>
+            )}
+          </div>
+
+          {/* WhatsApp — Interactive */}
+          <WhatsAppChannelRow agentId={agentData?.id || ""} agentConfig={agentData?.config as Record<string, unknown>} />
+
+          {/* Coming soon channels */}
           {([
-            {
-              icon: "✈️",
-              name: "Telegram",
-              desc: "Chat with your bot from any device",
-              color: "#2AABEE",
-              connected: !!(agentData?.config as Record<string, unknown>)?.telegramBotToken,
-              popular: true,
-            },
-            {
-              icon: "📱",
-              name: "WhatsApp",
-              desc: "Use your existing WhatsApp — via WhatsApp Business API",
-              color: "#25D366",
-              connected: false,
-              popular: true,
-            },
-            {
-              icon: "🎮",
-              name: "Discord",
-              desc: "Add your bot to a Discord server",
-              color: "#5865F2",
-              connected: false,
-              popular: true,
-            },
-            {
-              icon: "💬",
-              name: "Slack",
-              desc: "Use your bot inside your Slack workspace",
-              color: "#4A154B",
-              connected: false,
-              popular: true,
-            },
-            {
-              icon: "💬",
-              name: "Signal",
-              desc: "Privacy-focused encrypted messaging",
-              color: "#3A76F0",
-              connected: false,
-              popular: false,
-            },
-            {
-              icon: "💬",
-              name: "iMessage",
-              desc: "Chat via Apple Messages (requires BlueBubbles)",
-              color: "#34C759",
-              connected: false,
-              popular: false,
-            },
-            {
-              icon: "💬",
-              name: "Matrix",
-              desc: "Decentralized, open-source messaging",
-              color: "#0DBD8B",
-              connected: false,
-              popular: false,
-            },
+            { icon: "🎮", name: "Discord", desc: "Add your bot to a Discord server", color: "#5865F2" },
+            { icon: "💬", name: "Slack", desc: "Use your bot inside your Slack workspace", color: "#4A154B" },
+            { icon: "💬", name: "Signal", desc: "Privacy-focused encrypted messaging", color: "#3A76F0" },
+            { icon: "💬", name: "iMessage", desc: "Chat via Apple Messages (requires BlueBubbles)", color: "#34C759" },
+            { icon: "💬", name: "Matrix", desc: "Decentralized, open-source messaging", color: "#0DBD8B" },
           ]).map((ch) => (
             <div key={ch.name} className="flex items-center gap-4 p-4">
-              <div className="w-10 h-10 rounded-lg flex items-center justify-center text-white text-xl flex-shrink-0" style={{ backgroundColor: ch.color }}>
-                {ch.icon}
-              </div>
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center text-white text-xl flex-shrink-0" style={{ backgroundColor: ch.color }}>{ch.icon}</div>
               <div className="flex-1 min-w-0">
                 <div className="font-semibold text-sm flex items-center gap-2">
                   {ch.name}
-                  {ch.popular && !ch.connected && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface-light)] text-[var(--muted)]">Popular</span>
-                  )}
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface-light)] text-[var(--muted)]">Soon</span>
                 </div>
                 <div className="text-xs text-[var(--muted)]">{ch.desc}</div>
               </div>
-              {ch.connected ? (
-                <span className="px-2.5 py-1 rounded-full text-xs bg-[rgba(34,197,94,0.15)] text-green-400 border border-[rgba(34,197,94,0.3)] flex-shrink-0">
-                  🟢 Connected
-                </span>
-              ) : (
-                <button className="px-3 py-1.5 rounded-lg text-xs bg-[var(--surface-light)] text-[var(--muted)] hover:text-white border border-[var(--border)] transition-colors flex-shrink-0">
-                  Connect
-                </button>
-              )}
+              <button disabled className="px-3 py-1.5 rounded-lg text-xs bg-[var(--surface-light)] text-[var(--muted)] border border-[var(--border)] opacity-40 cursor-not-allowed flex-shrink-0">Connect</button>
             </div>
           ))}
         </div>
