@@ -176,10 +176,124 @@ function parseActivityLog(md: string): ActivityEntry[] {
   return entries;
 }
 
+function mapCalendarStatus(rawStatus: string): Pick<CalendarEntry, "statusEmoji" | "status"> {
+  const normalizedStatus = rawStatus.trim().toLowerCase();
+
+  return {
+    statusEmoji:
+      normalizedStatus.includes("publish") ? "🚀" :
+      normalizedStatus.includes("approv") ? "✅" :
+      "🟡",
+    status:
+      normalizedStatus.includes("publish") ? "Published" :
+      normalizedStatus.includes("approv") ? "Approved" :
+      normalizedStatus.includes("draft") ? "Drafted" :
+      normalizedStatus.includes("skip") ? "Skipped" :
+      normalizedStatus.includes("pending") ? "Pending approval" :
+      "Planned",
+  };
+}
+
 function parseContentCalendar(md: string): CalendarEntry[] {
   const entries: CalendarEntry[] = [];
   const lines = md.split("\n");
+
+  let blockDate = "";
+  let blockPlatform = "";
+  let blockTopic = "";
+  let blockStatus = "Planned";
+  let blockStatusEmoji = "🟡";
+  let blockDraftLines: string[] = [];
+  let collectingDraft = false;
+
+  const pushBlockEntry = () => {
+    const draft = blockDraftLines.join(" ").trim() || blockTopic.trim();
+    if (!blockDate || !blockPlatform || !draft) return;
+
+    entries.push({
+      date: blockDate,
+      platform: blockPlatform,
+      draft,
+      statusEmoji: blockStatusEmoji,
+      status: blockStatus,
+    });
+
+    blockDate = "";
+    blockPlatform = "";
+    blockTopic = "";
+    blockStatus = "Planned";
+    blockStatusEmoji = "🟡";
+    blockDraftLines = [];
+    collectingDraft = false;
+  };
+
   for (const line of lines) {
+    const headingMatch = line.match(/^###\s+(.+)/);
+    if (headingMatch) {
+      pushBlockEntry();
+      blockDate = headingMatch[1].trim();
+      continue;
+    }
+
+    if (blockDate) {
+      const platformMatch = line.match(/^-\s*\*\*Platform:\*\*\s*(.+)/);
+      if (platformMatch) {
+        blockPlatform = platformMatch[1].trim();
+        collectingDraft = false;
+        continue;
+      }
+
+      const topicMatch = line.match(/^-\s*\*\*Topic:\*\*\s*(.+)/);
+      if (topicMatch) {
+        blockTopic = topicMatch[1].trim();
+        collectingDraft = false;
+        continue;
+      }
+
+      if (/^-\s*\*\*Draft:\*\*/.test(line)) {
+        collectingDraft = true;
+        continue;
+      }
+
+      const quoteMatch = line.match(/^\s*>\s?(.*)/);
+      if (collectingDraft && quoteMatch) {
+        if (quoteMatch[1].trim()) blockDraftLines.push(quoteMatch[1].trim());
+        continue;
+      }
+
+      const statusMatch = line.match(/^-\s*\*\*Status:\*\*\s*(.+)/);
+      if (statusMatch) {
+        const mapped = mapCalendarStatus(statusMatch[1]);
+        blockStatusEmoji = mapped.statusEmoji;
+        blockStatus = mapped.status;
+        collectingDraft = false;
+        continue;
+      }
+
+      if (!line.trim() || line.startsWith("---")) {
+        collectingDraft = false;
+      }
+    }
+
+    const tableMatch = line.match(/^\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(.*?)\s*\|$/);
+    if (tableMatch) {
+      const [, date, platform, draft, rawStatus] = tableMatch;
+      const isHeader = date.trim().toLowerCase() === "date";
+      const isDivider = [date, platform, draft, rawStatus].every((cell) => /^-+$/.test(cell.trim()));
+
+      if (!isHeader && !isDivider && date.trim() && platform.trim() && draft.trim()) {
+        const mapped = mapCalendarStatus(rawStatus);
+
+        entries.push({
+          date: date.trim(),
+          platform: platform.trim(),
+          draft: draft.trim(),
+          statusEmoji: mapped.statusEmoji,
+          status: mapped.status,
+        });
+      }
+    }
+
     const match = line.match(/^-\s*\*\*(.+?)\*\*\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(🟡|✅|🚀)\s*(.+)/);
     if (match) {
       entries.push({
@@ -201,6 +315,7 @@ function parseContentCalendar(md: string): CalendarEntry[] {
       });
     }
   }
+  pushBlockEntry();
   return entries;
 }
 
@@ -822,7 +937,6 @@ function BrandTab({ agentData }: { agentData: Agent | null }) {
     if (!newHandle.trim()) return;
     setSocialAccounts((prev) => [...prev, { platform: newPlatform, handle: newHandle.trim(), connected: false }]);
     setNewHandle("");
-    setShowAddAccount(false);
   };
 
   const removeSocialAccount = (index: number) => {
@@ -962,7 +1076,7 @@ function BrandTab({ agentData }: { agentData: Agent | null }) {
               <div className="text-center py-4 mb-4">
                 <p className="text-sm text-[var(--muted)]">No social accounts added yet.</p>
               </div>
-            )
+            )}
 
             <div className="flex items-center gap-2">
               <select
