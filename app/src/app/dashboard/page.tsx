@@ -180,6 +180,21 @@ function parseActivityLog(md: string): ActivityEntry[] {
 function parseContentCalendar(md: string): CalendarEntry[] {
   const entries: CalendarEntry[] = [];
   const lines = md.split("\n");
+
+  const normalizeStatus = (raw: string): { statusEmoji: string; status: string } => {
+    const cleaned = raw.trim().replace(/^[^\p{L}\p{N}]+/u, "").toLowerCase();
+
+    if (cleaned.startsWith("approved")) return { statusEmoji: "✅", status: "Approved" };
+    if (cleaned.startsWith("published") || cleaned.startsWith("live")) return { statusEmoji: "🚀", status: "Published" };
+    if (cleaned.startsWith("planned")) return { statusEmoji: "🟡", status: "Planned" };
+    if (cleaned.startsWith("draft")) return { statusEmoji: "🟡", status: "Drafted" };
+    if (cleaned.startsWith("skip") || cleaned.startsWith("cancel") || cleaned.startsWith("postpone")) {
+      return { statusEmoji: "🟡", status: "Skipped" };
+    }
+
+    return { statusEmoji: "🟡", status: raw.trim() || "Pending" };
+  };
+
   for (const line of lines) {
     const match = line.match(/^-\s*\*\*(.+?)\*\*\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*(🟡|✅|🚀)\s*(.+)/);
     if (match) {
@@ -201,7 +216,105 @@ function parseContentCalendar(md: string): CalendarEntry[] {
         status: altMatch[1] === "🟡" ? "Pending" : altMatch[1] === "✅" ? "Approved" : "Published",
       });
     }
+
+    if (!line.trim().startsWith("|")) continue;
+
+    const cells = line
+      .split("|")
+      .map((cell) => cell.trim())
+      .filter(Boolean);
+
+    if (cells.length < 4) continue;
+    if (cells.every((cell) => /^:?-{3,}:?$/.test(cell))) continue;
+    if (cells[0].toLowerCase() === "date" && cells[1].toLowerCase() === "platform") continue;
+
+    const [date, platform, draft, rawStatus] = cells;
+    if (!date || !platform || !draft || !rawStatus) continue;
+
+    const { statusEmoji, status } = normalizeStatus(rawStatus);
+    entries.push({
+      date,
+      platform,
+      draft,
+      statusEmoji,
+      status,
+    });
   }
+
+  const headingMatches = [...md.matchAll(/^###\s+(.+)$/gm)];
+  for (let i = 0; i < headingMatches.length; i++) {
+    const current = headingMatches[i];
+    const next = headingMatches[i + 1];
+    const date = current[1].trim();
+    const start = (current.index ?? 0) + current[0].length;
+    const end = next?.index ?? md.length;
+    const block = md.slice(start, end);
+    const blockLines = block.split("\n");
+
+    let platform = "";
+    let topic = "";
+    let rawStatus = "";
+    let draft = "";
+    let collectingDraft = false;
+    const draftLines: string[] = [];
+
+    for (const rawLine of blockLines) {
+      const line = rawLine.trimEnd();
+
+      const platformMatch = line.match(/^- \*\*Platform:\*\*\s*(.+)$/);
+      if (platformMatch) {
+        platform = platformMatch[1].trim();
+        collectingDraft = false;
+        continue;
+      }
+
+      const topicMatch = line.match(/^- \*\*Topic:\*\*\s*(.+)$/);
+      if (topicMatch) {
+        topic = topicMatch[1].trim();
+        collectingDraft = false;
+        continue;
+      }
+
+      const statusMatch = line.match(/^- \*\*Status:\*\*\s*(.+)$/);
+      if (statusMatch) {
+        rawStatus = statusMatch[1].trim();
+        collectingDraft = false;
+        continue;
+      }
+
+      const draftMatch = line.match(/^- \*\*Draft:\*\*\s*(.*)$/);
+      if (draftMatch) {
+        const inlineDraft = draftMatch[1].trim();
+        if (inlineDraft) draftLines.push(inlineDraft);
+        collectingDraft = true;
+        continue;
+      }
+
+      if (!collectingDraft) continue;
+      if (/^- \*\*.+:\*\*/.test(line) || /^---+$/.test(line.trim())) break;
+
+      if (line.trim().startsWith(">")) {
+        draftLines.push(line.trim().replace(/^>\s?/, ""));
+      } else if (line.trim().startsWith("- ")) {
+        break;
+      } else {
+        draftLines.push(line.trim());
+      }
+    }
+
+    draft = draftLines.join("\n").trim() || topic;
+    if (!date || !platform || !draft) continue;
+
+    const { statusEmoji, status } = normalizeStatus(rawStatus);
+    entries.push({
+      date,
+      platform,
+      draft,
+      statusEmoji,
+      status,
+    });
+  }
+
   return entries;
 }
 
