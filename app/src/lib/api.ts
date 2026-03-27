@@ -165,6 +165,7 @@ export type WhatsAppStatus = {
   configured: boolean;
   linked: boolean;
   hasCreds: boolean;
+  pluginInstalled?: boolean;
   running: boolean;
   statusLine: string | null;
   message: string;
