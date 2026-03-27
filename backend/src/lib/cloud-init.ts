@@ -82,7 +82,7 @@ useradd -m -s /bin/bash agent
 
 # Allow agent to restart its own service + read logs
 cat > /etc/sudoers.d/agent-openclaw << 'SUDOERS'
-agent ALL=(ALL) NOPASSWD: /bin/systemctl restart openclaw-gateway, /bin/systemctl stop openclaw-gateway, /bin/systemctl start openclaw-gateway, /bin/systemctl status openclaw-gateway, /bin/journalctl *
+agent ALL=(ALL) NOPASSWD: /bin/systemctl restart openclaw-gateway, /bin/systemctl stop openclaw-gateway, /bin/systemctl start openclaw-gateway, /bin/systemctl status openclaw-gateway, /usr/bin/systemctl restart openclaw-gateway, /usr/bin/systemctl stop openclaw-gateway, /usr/bin/systemctl start openclaw-gateway, /usr/bin/systemctl status openclaw-gateway, /bin/journalctl *, /usr/bin/journalctl *
 SUDOERS
 chmod 440 /etc/sudoers.d/agent-openclaw
 
@@ -175,6 +175,12 @@ echo "Started: $(date -u)"
 
 # Unmask service if needed (snapshot quirk)
 systemctl unmask openclaw-gateway 2>/dev/null || true
+
+# Repair agent sudo permissions in case the base snapshot carried a bad file
+cat > /etc/sudoers.d/agent-openclaw << 'SUDOERS'
+agent ALL=(ALL) NOPASSWD: /bin/systemctl restart openclaw-gateway, /bin/systemctl stop openclaw-gateway, /bin/systemctl start openclaw-gateway, /bin/systemctl status openclaw-gateway, /usr/bin/systemctl restart openclaw-gateway, /usr/bin/systemctl stop openclaw-gateway, /usr/bin/systemctl start openclaw-gateway, /usr/bin/systemctl status openclaw-gateway, /bin/journalctl *, /usr/bin/journalctl *
+SUDOERS
+chmod 440 /etc/sudoers.d/agent-openclaw
 
 # Verify openclaw binary is intact
 BINARY_SIZE=$(wc -c < /usr/lib/node_modules/openclaw/openclaw.mjs 2>/dev/null || echo 0)

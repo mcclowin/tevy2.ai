@@ -97,6 +97,11 @@ async function writeOpenClawConfig(ip: string, config: Record<string, unknown>):
   }
 }
 
+async function hasWhatsAppCreds(ip: string): Promise<boolean> {
+  const credsResult = await ssh.exec(ip, "ls -la /home/agent/.openclaw/credentials/whatsapp/*/creds.json 2>/dev/null || echo 'no creds'");
+  return !credsResult.stdout.includes("no creds");
+}
+
 // ── POST /agents/:id/channels/whatsapp/setup ───────────────────────────
 // Patches openclaw.json with WhatsApp config, restarts gateway, starts login.
 // The QR code is captured from the login process and stored in a temp file.
@@ -149,21 +154,23 @@ channels.post("/:id/channels/whatsapp/setup", async (c) => {
     // Write updated config
     await writeOpenClawConfig(ip, config);
 
-    // Restart gateway to pick up new config
-    await ssh.exec(ip, "sudo systemctl restart openclaw-gateway", { user: "agent" });
+    // Match the official OpenClaw flow: link WhatsApp first, then start the
+    // gateway afterwards. Stop the gateway up front so the login command owns
+    // the WhatsApp session while generating the QR and waiting for the scan.
+    await ssh.exec(ip, "sudo -n /bin/systemctl stop openclaw-gateway || true", { user: "agent" });
 
-    // Wait a moment for gateway to start
-    await new Promise((r) => setTimeout(r, 3000));
-
-    // Start WhatsApp login in background, capture QR output
-    // openclaw channels login outputs QR to terminal — we capture it
-    // Run in background, pipe output to a temp file
+    // Start WhatsApp login in the background and capture QR output to disk.
+    // The earlier tee-based approach kept stdout attached to the SSH session,
+    // which caused the setup request to time out before the QR flow started.
     const loginResult = await ssh.exec(
       ip,
-      `cd /home/agent && timeout 120 openclaw channels login --channel whatsapp 2>&1 | tee /tmp/wa-login-output.txt &
-       echo "login_started"`,
-      { timeoutMs: 10_000 }
+      `sh -lc 'rm -f /tmp/wa-login-output.txt && nohup sh -lc '"'"'cd /home/agent && timeout 120 openclaw channels login --channel whatsapp > /tmp/wa-login-output.txt 2>&1'"'"' >/dev/null 2>&1 < /dev/null & echo login_started'`,
+      { timeoutMs: 15_000 }
     );
+
+    if (!loginResult.stdout.includes("login_started")) {
+      throw new Error(`Failed to launch WhatsApp login: ${loginResult.stderr || loginResult.stdout}`);
+    }
 
     // Update agent config in DB
     const agentConfig = (agent.config || {}) as Record<string, unknown>;
@@ -203,9 +210,24 @@ channels.get("/:id/channels/whatsapp/qr", async (c) => {
   try {
     const ip = await resolveIp(agent);
 
-    // Check if already linked
-    const statusResult = await ssh.exec(ip, "openclaw channels status 2>&1");
-    if (statusResult.stdout.includes("whatsapp") && statusResult.stdout.includes("running")) {
+    // QR polling must stay fast. Avoid `openclaw channels status` here because
+    // it blocks for a long time when the gateway is unavailable.
+    if (await hasWhatsAppCreds(ip)) {
+      // Official flow: once linked, start the gateway so it owns the socket and
+      // handles reconnects. Only do this after credentials exist.
+      const gatewayState = await ssh.gatewayStatus(ip);
+      if (gatewayState !== "active") {
+        try {
+          await ssh.restartGateway(ip);
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : "Gateway restart failed";
+          return c.json({
+            linked: true,
+            qr: null,
+            message: `WhatsApp linked, but gateway restart failed: ${msg}`,
+          });
+        }
+      }
       return c.json({ linked: true, qr: null });
     }
 
@@ -215,11 +237,6 @@ channels.get("/:id/channels/whatsapp/qr", async (c) => {
 
     if (!output || output.trim() === "") {
       return c.json({ linked: false, qr: null, message: "Waiting for QR code..." });
-    }
-
-    // Check if login completed (linked)
-    if (output.includes("Linked") || output.includes("linked") || output.includes("success")) {
-      return c.json({ linked: true, qr: null });
     }
 
     // Extract QR data — openclaw outputs QR as text blocks
@@ -294,33 +311,25 @@ channels.get("/:id/channels/whatsapp/status", async (c) => {
       });
     }
 
-    // Check openclaw channels status
-    const statusResult = await ssh.exec(ip, "openclaw channels status 2>&1");
-    const output = statusResult.stdout.toLowerCase();
-
     // Check if whatsapp appears in config
     const configResult = await ssh.exec(ip, "grep -c whatsapp /home/agent/.openclaw/openclaw.json 2>/dev/null || echo 0");
     const configured = parseInt(configResult.stdout.trim()) > 0;
 
-    // Parse status output for WhatsApp
-    const whatsappLine = statusResult.stdout.split("\n").find((l: string) =>
-      l.toLowerCase().includes("whatsapp")
-    );
-
-    const linked = whatsappLine
-      ? (whatsappLine.includes("running") || whatsappLine.includes("linked"))
-      : false;
-
-    // Check for credentials on disk
-    const credsResult = await ssh.exec(ip, "ls -la /home/agent/.openclaw/credentials/whatsapp/*/creds.json 2>/dev/null || echo 'no creds'");
-    const hasCreds = !credsResult.stdout.includes("no creds");
+    const hasCreds = await hasWhatsAppCreds(ip);
+    const gatewayState = await ssh.gatewayStatus(ip);
+    const linked = hasCreds;
+    const running = gatewayState === "active";
 
     return c.json({
       configured,
       linked,
       hasCreds,
-      running: output.includes("whatsapp") && (output.includes("running") || output.includes("connected")),
-      statusLine: whatsappLine?.trim() || null,
+      running,
+      statusLine: linked
+        ? "- WhatsApp default: enabled, configured, linked"
+        : configured
+          ? "- WhatsApp default: enabled, configured, not linked"
+          : null,
       message: linked
         ? "WhatsApp is connected and running"
         : configured
@@ -370,7 +379,7 @@ channels.post("/:id/channels/whatsapp/disconnect", async (c) => {
     await writeOpenClawConfig(ip, config);
 
     // Restart gateway
-    await ssh.exec(ip, "sudo systemctl restart openclaw-gateway", { user: "agent" });
+    await ssh.exec(ip, "sudo -n /bin/systemctl restart openclaw-gateway", { user: "agent" });
 
     // Update DB
     const agentConfig = (agent.config || {}) as Record<string, unknown>;

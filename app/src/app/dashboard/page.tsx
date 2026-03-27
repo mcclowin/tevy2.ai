@@ -1376,7 +1376,14 @@ function WhatsAppChannelRow({ agentId, agentConfig }: { agentId: string; agentCo
   const [polling, setPolling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [disconnecting, setDisconnecting] = useState(false);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const stopPolling = () => {
+    if (pollRef.current) {
+      clearTimeout(pollRef.current);
+      pollRef.current = null;
+    }
+  };
 
   // Check status on mount
   useEffect(() => {
@@ -1388,7 +1395,7 @@ function WhatsAppChannelRow({ agentId, agentConfig }: { agentId: string; agentCo
 
   // Cleanup polling on unmount
   useEffect(() => {
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+    return () => { stopPolling(); };
   }, []);
 
   const startSetup = async () => {
@@ -1403,7 +1410,7 @@ function WhatsAppChannelRow({ agentId, agentConfig }: { agentId: string; agentCo
       // Start polling for QR code
       setPolling(true);
       let attempts = 0;
-      pollRef.current = setInterval(async () => {
+      const pollQr = async () => {
         attempts++;
         try {
           const qr = await getWhatsAppQR(agentId);
@@ -1411,13 +1418,14 @@ function WhatsAppChannelRow({ agentId, agentConfig }: { agentId: string; agentCo
 
           if (qr.linked) {
             // Successfully linked!
-            if (pollRef.current) clearInterval(pollRef.current);
+            stopPolling();
             setPolling(false);
             setSetting(false);
             setShowSetup(false);
             // Refresh status
             const status = await getWhatsAppStatus(agentId);
             setWaStatus(status);
+            return;
           }
         } catch {
           // Keep polling
@@ -1425,12 +1433,17 @@ function WhatsAppChannelRow({ agentId, agentConfig }: { agentId: string; agentCo
 
         if (attempts > 60) {
           // 2 minutes timeout
-          if (pollRef.current) clearInterval(pollRef.current);
+          stopPolling();
           setPolling(false);
           setSetting(false);
           setError("QR code timed out. Try again.");
+          return;
         }
-      }, 2000);
+
+        pollRef.current = setTimeout(() => { void pollQr(); }, 2000);
+      };
+
+      void pollQr();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Setup failed");
       setSetting(false);
@@ -1452,7 +1465,7 @@ function WhatsAppChannelRow({ agentId, agentConfig }: { agentId: string; agentCo
     }
   };
 
-  const isConnected = waStatus?.linked || waStatus?.running || (agentConfig?.whatsappEnabled && waStatus?.hasCreds);
+  const isConnected = !!(waStatus?.linked || waStatus?.hasCreds);
 
   return (
     <>
@@ -1529,7 +1542,10 @@ function WhatsAppChannelRow({ agentId, agentConfig }: { agentId: string; agentCo
                 <p className="text-xs text-[var(--muted)] mb-4">Open WhatsApp → Settings → Linked Devices → Link a Device</p>
 
                 {qrData?.qr && qrData.qrType === "text" ? (
-                  <pre className="bg-white text-black p-2 rounded-lg text-[6px] leading-[7px] font-mono inline-block mx-auto mb-4 select-none" style={{ letterSpacing: "-0.5px" }}>
+                  <pre
+                    className="bg-white text-black p-4 rounded-xl text-[8px] leading-[8px] md:text-[10px] md:leading-[10px] font-mono inline-block mx-auto mb-4 select-none overflow-auto max-w-full"
+                    style={{ letterSpacing: "-0.4px" }}
+                  >
                     {qrData.qr}
                   </pre>
                 ) : qrData?.qr && qrData.qrType === "data" ? (
@@ -1550,7 +1566,7 @@ function WhatsAppChannelRow({ agentId, agentConfig }: { agentId: string; agentCo
 
                 <button
                   onClick={() => {
-                    if (pollRef.current) clearInterval(pollRef.current);
+                    stopPolling();
                     setPolling(false);
                     setSetting(false);
                     setQrData(null);

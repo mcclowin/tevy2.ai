@@ -115,8 +115,7 @@ export async function listFiles(ip: string, dir: string): Promise<string[]> {
  * Restart the OpenClaw gateway service.
  */
 export async function restartGateway(ip: string): Promise<void> {
-  // Use root for systemctl
-  const result = await exec(ip, "sudo systemctl restart openclaw-gateway", { user: "agent" });
+  const result = await exec(ip, "sudo -n /bin/systemctl restart openclaw-gateway", { user: "agent" });
   if (result.exitCode !== 0) {
     throw new Error(`Failed to restart gateway: ${result.stderr}`);
   }
@@ -126,8 +125,11 @@ export async function restartGateway(ip: string): Promise<void> {
  * Get gateway status.
  */
 export async function gatewayStatus(ip: string): Promise<"active" | "inactive" | "failed" | "unknown"> {
-  const result = await exec(ip, "systemctl is-active openclaw-gateway 2>/dev/null || echo unknown");
-  const status = result.stdout.trim();
+  const result = await exec(ip, "/bin/systemctl is-active openclaw-gateway 2>/dev/null || true");
+  const status = result.stdout
+    .split("\n")
+    .map((line) => line.trim())
+    .find(Boolean) || "unknown";
   if (["active", "inactive", "failed"].includes(status)) return status as any;
   return "unknown";
 }
@@ -136,7 +138,7 @@ export async function gatewayStatus(ip: string): Promise<"active" | "inactive" |
  * Read recent gateway logs.
  */
 export async function gatewayLogs(ip: string, lines = 50): Promise<string> {
-  const result = await exec(ip, `sudo journalctl -u openclaw-gateway --no-pager -n ${lines} 2>/dev/null || echo "no logs"`, { user: "agent" });
+  const result = await exec(ip, `sudo -n /bin/journalctl -u openclaw-gateway --no-pager -n ${lines} 2>/dev/null || echo "no logs"`, { user: "agent" });
   return result.stdout;
 }
 
