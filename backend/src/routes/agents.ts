@@ -105,6 +105,7 @@ agents.post("/", async (c) => {
       name: businessName,
       runtime: "openclaw",
       model: env.DEFAULT_MODEL,
+      telegramBotToken: body.telegramBotToken,
       files,
       config: {
         tevyUserId: userId,
