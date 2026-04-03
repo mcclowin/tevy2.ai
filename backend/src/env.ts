@@ -19,10 +19,8 @@ export const env = {
   STYTCH_PROJECT_ID: optional("STYTCH_PROJECT_ID", ""),
   STYTCH_SECRET: optional("STYTCH_SECRET", ""),
 
-  // Supabase (Tevy user/account mapping only)
-  SUPABASE_URL: required("SUPABASE_URL"),
-  SUPABASE_ANON_KEY: required("SUPABASE_ANON_KEY"),
-  SUPABASE_SERVICE_ROLE_KEY: required("SUPABASE_SERVICE_ROLE_KEY"),
+  // Database
+  DATABASE_URL: required("DATABASE_URL"),
 
   // BotBoot (app/platform auth)
   BOTBOOT_API_URL: optional("BOTBOOT_API_URL", "http://localhost:3001"),

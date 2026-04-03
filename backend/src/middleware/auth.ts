@@ -1,6 +1,5 @@
 import type { Context, Next } from "hono";
-import { supabase } from "../lib/supabase.js";
-import { env } from "../env.js";
+import { one, query } from "../lib/db.js";
 
 // Middleware: verify Stytch session token from Authorization header
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -14,29 +13,26 @@ export async function authMiddleware(c: Context<any>, next: Next) {
     let account: { id: string; email: string } | null = null;
 
     if (token) {
-      const { data } = await supabase
-        .from("accounts")
-        .select("id, email")
-        .eq("id", token)
-        .single();
-      account = data;
+      account = await one<{ id: string; email: string }>(
+        "select id, email from public.accounts where id = $1 limit 1",
+        [token]
+      );
     }
 
     if (!account) {
       // Fallback: first account or create one
-      const { data: accounts } = await supabase
-        .from("accounts")
-        .select("id, email")
-        .limit(1);
+      const accounts = await query<{ id: string; email: string }>(
+        "select id, email from public.accounts order by created_at asc limit 1"
+      );
 
-      account = accounts?.[0] || null;
+      account = accounts[0] || null;
       if (!account) {
-        const { data } = await supabase
-          .from("accounts")
-          .insert({ email: "dev@tevy2.ai", plan: "starter" })
-          .select()
-          .single();
-        account = data;
+        account = await one<{ id: string; email: string }>(
+          `insert into public.accounts (email, plan)
+           values ($1, $2)
+           returning id, email`,
+          ["dev@tevy2.ai", "starter"]
+        );
       }
     }
 
@@ -70,11 +66,10 @@ export async function authMiddleware(c: Context<any>, next: Next) {
     }
 
     // Look up our internal account
-    const { data: account } = await supabase
-      .from("accounts")
-      .select("id, email")
-      .eq("stytch_user_id", stytchUserId)
-      .single();
+    const account = await one<{ id: string; email: string | null }>(
+      "select id, email from public.accounts where stytch_user_id = $1 limit 1",
+      [stytchUserId]
+    );
 
     if (!account) {
       return c.json({ error: "Account not found" }, 401);

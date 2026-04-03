@@ -13,9 +13,9 @@
   "dependencies": {
     "@hono/node-server": "^1.13.8",
     "@nangohq/node": "^0.69.46",
-    "@supabase/supabase-js": "^2.49.1",
     "dotenv": "^16.4.7",
     "hono": "^4.7.4",
+    "pg": "^8.13.1",
     "stytch": "^13.1.0"
   },
   "engines": {
@@ -23,6 +23,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.13.0",
+    "@types/pg": "^8.11.10",
     "tsx": "^4.19.3",
     "typescript": "^5.7.3"
   }

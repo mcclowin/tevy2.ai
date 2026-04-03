@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DB_URL="${SUPABASE_DB_URL:-${DATABASE_URL:-}}"
+DB_URL="${DATABASE_URL:-${SUPABASE_DB_URL:-}}"
 MIGRATIONS_DIR="$(cd "$(dirname "$0")/migrations" && pwd)"
 
 if [[ -z "$DB_URL" ]]; then
-  echo "Error: SUPABASE_DB_URL or DATABASE_URL must be set to a Postgres connection string."
+  echo "Error: DATABASE_URL or SUPABASE_DB_URL must be set to a Postgres connection string."
   exit 1
 fi
 

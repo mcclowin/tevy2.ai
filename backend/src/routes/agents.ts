@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { authMiddleware } from "../middleware/auth.js";
 import { botboot, BotBootError } from "../lib/botboot.js";
 import { env } from "../env.js";
-import { supabase } from "../lib/supabase.js";
+import { one, query } from "../lib/db.js";
 
 type AuthEnv = {
   Variables: {
@@ -76,18 +76,17 @@ function handleBotBootError(err: unknown, c: any, context: string) {
 }
 
 async function getOwnedAgentRowOr404(accountId: string, id: string): Promise<TevyAgentRow> {
-  const { data, error } = await supabase
-    .from("agents")
-    .select("*")
-    .eq("account_id", accountId)
-    .eq("id", id)
-    .neq("state", "deleted")
-    .single();
+  const row = await one<TevyAgentRow>(
+    `select * from public.agents
+     where account_id = $1 and id = $2 and state <> 'deleted'
+     limit 1`,
+    [accountId, id]
+  );
 
-  if (error || !data) {
+  if (!row) {
     throw new BotBootError(404, "Agent not found", { id });
   }
-  return data as TevyAgentRow;
+  return row;
 }
 
 async function getOwnedAgentOr404(accountId: string, id: string) {
@@ -155,28 +154,29 @@ agents.post("/", async (c) => {
       config: tevyConfig,
     });
 
-    const { data: row, error: rowError } = await supabase
-      .from("agents")
-      .insert({
-        id: created.id,
-        account_id: accountId,
+    const row = await one<TevyAgentRow>(
+      `insert into public.agents (
+         id, account_id, slug, hetzner_ip, gateway_token, state, business_name, website_url, config
+       ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb)
+       returning *`,
+      [
+        created.id,
+        accountId,
         slug,
-        hetzner_ip: created.ip || null,
-        gateway_token: null,
-        state: created.state || "provisioning",
-        business_name: businessName,
-        website_url: body.websiteUrl || null,
-        config: { ...tevyConfig, botbootAgentId: created.id },
-      })
-      .select("*")
-      .single();
+        created.ip || null,
+        null,
+        created.state || "provisioning",
+        businessName,
+        body.websiteUrl || null,
+        JSON.stringify({ ...tevyConfig, botbootAgentId: created.id }),
+      ]
+    );
 
-    if (rowError) {
-      console.error("[agents] failed to persist Tevy mapping row", rowError);
-      return c.json({ error: "Agent created in BotBoot but failed to save Tevy mapping", details: rowError.message }, 500);
+    if (!row) {
+      return c.json({ error: "Agent created in BotBoot but failed to save Tevy mapping" }, 500);
     }
 
-    return c.json({ success: true, agent: normalize(created, row as TevyAgentRow) });
+    return c.json({ success: true, agent: normalize(created, row) });
   } catch (err) {
     return handleBotBootError(err, c, "create");
   }
@@ -185,14 +185,12 @@ agents.post("/", async (c) => {
 agents.get("/", async (c) => {
   const accountId = c.get("accountId");
   try {
-    const { data: rows, error } = await supabase
-      .from("agents")
-      .select("*")
-      .eq("account_id", accountId)
-      .neq("state", "deleted")
-      .order("created_at", { ascending: false });
-
-    if (error) return c.json({ error: error.message }, 500);
+    const rows = await query<TevyAgentRow>(
+      `select * from public.agents
+       where account_id = $1 and state <> 'deleted'
+       order by created_at desc`,
+      [accountId]
+    );
 
     const agents = await Promise.all((rows || []).map(async (row) => {
       const botbootAgentId = typeof row.config?.botbootAgentId === "string" ? row.config.botbootAgentId : row.id;
@@ -239,7 +237,12 @@ agents.delete("/:id", async (c) => {
     const { row } = await getOwnedAgentOr404(c.get("accountId"), c.req.param("id"));
     const botbootAgentId = typeof row.config?.botbootAgentId === "string" ? row.config.botbootAgentId : row.id;
     const result = await botboot.del<{ success: boolean }>(`/v1/agents/${botbootAgentId}`);
-    await supabase.from("agents").update({ state: "deleted", updated_at: new Date().toISOString() }).eq("id", row.id);
+    await query(
+      `update public.agents
+       set state = 'deleted', updated_at = now()
+       where id = $1`,
+      [row.id]
+    );
     return c.json(result);
   } catch (err) {
     return handleBotBootError(err, c, "delete");

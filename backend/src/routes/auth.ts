@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { supabase } from "../lib/supabase.js";
+import { one } from "../lib/db.js";
 import { env } from "../env.js";
 
 const auth = new Hono();
@@ -15,20 +15,16 @@ auth.post("/magic-link", async (c) => {
   // Dev bypass: instant login, no Stytch
   if (env.DEV_BYPASS_AUTH) {
     // Upsert account in DB
-    const { data: account, error: dbError } = await supabase
-      .from("accounts")
-      .upsert(
-        {
-          email,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "email" }
-      )
-      .select()
-      .single();
+    const account = await one<{ id: string; email: string }>(
+      `insert into public.accounts (email, updated_at)
+       values ($1, now())
+       on conflict (email)
+       do update set updated_at = now()
+       returning id, email`,
+      [email]
+    );
 
-    if (dbError) {
-      console.error("DB upsert error:", dbError);
+    if (!account) {
       return c.json({ error: "Failed to create account" }, 500);
     }
 
@@ -79,21 +75,16 @@ auth.post("/authenticate", async (c) => {
     const userEmail = response.user.emails?.[0]?.email || "";
 
     // Upsert account in DB
-    const { data: account, error: dbError } = await supabase
-      .from("accounts")
-      .upsert(
-        {
-          email: userEmail,
-          stytch_user_id: stytchUserId,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "email" }
-      )
-      .select()
-      .single();
+    const account = await one<{ id: string; email: string }>(
+      `insert into public.accounts (email, stytch_user_id, updated_at)
+       values ($1, $2, now())
+       on conflict (email)
+       do update set stytch_user_id = excluded.stytch_user_id, updated_at = now()
+       returning id, email`,
+      [userEmail, stytchUserId]
+    );
 
-    if (dbError) {
-      console.error("DB upsert error:", dbError);
+    if (!account) {
       throw new Error("Failed to create account");
     }
 
@@ -137,11 +128,10 @@ auth.get("/me", async (c) => {
   // Dev bypass: extract account ID from dev token
   if (sessionToken.startsWith("dev_")) {
     const accountId = sessionToken.replace("dev_", "");
-    const { data: account } = await supabase
-      .from("accounts")
-      .select("*")
-      .eq("id", accountId)
-      .single();
+    const account = await one<{ id: string; email: string }>(
+      "select id, email from public.accounts where id = $1 limit 1",
+      [accountId]
+    );
 
     if (!account) return c.json({ error: "Not authenticated" }, 401);
 
@@ -162,11 +152,10 @@ auth.get("/me", async (c) => {
     const stytchUserId = response.user?.user_id || response.session?.user_id;
     const userEmail = response.user?.emails?.[0]?.email || "";
 
-    const { data: account } = await supabase
-      .from("accounts")
-      .select("*")
-      .eq("stytch_user_id", stytchUserId)
-      .single();
+    const account = await one<{ id: string; email: string | null }>(
+      "select id, email from public.accounts where stytch_user_id = $1 limit 1",
+      [stytchUserId]
+    );
 
     return c.json({
       id: account?.id || stytchUserId,
