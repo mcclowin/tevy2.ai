@@ -579,6 +579,7 @@ function OnboardingPanel({ onComplete }: { onComplete: (agent: Agent) => void })
 
     try {
       const result = await createAgent({
+        name: form.businessName,
         ownerName: form.ownerName,
         businessName: form.businessName,
         websiteUrl: form.websiteUrl,
@@ -591,7 +592,7 @@ function OnboardingPanel({ onComplete }: { onComplete: (agent: Agent) => void })
         telegramBotToken: form.addTelegram ? form.telegramBotToken : undefined,
       });
       setBootStatus({ stage: "provisioning", progress: 15, message: "Provisioning VPS...", ready: false });
-      pollBoot(result.agent.id);
+      pollBoot(result.id);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Deploy failed";
       setError(msg);

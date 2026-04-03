@@ -12,7 +12,7 @@ async function api<T>(path: string, options: ApiOptions = {}): Promise<T> {
 
   const token = await getAccessToken();
 
-  if (!token && !path.startsWith("/api/auth")) {
+  if (!token && !path.startsWith("/v1/auth")) {
     if (typeof window !== "undefined") {
       window.location.href = "/login";
     }
@@ -50,76 +50,95 @@ async function api<T>(path: string, options: ApiOptions = {}): Promise<T> {
   return data as T;
 }
 
-// ── Agents (Hetzner VPS) ──────────────────────────────────────────────
+// ── Agents ────────────────────────────────────────────────────────────
 
 export type Agent = {
   id: string;
-  slug: string;
+  name: string;
+  runtime: string;
+  provider: string;
   state: string;
   liveStatus?: string;
-  gateway_token?: string | null;
-  hetzner_server_id: string;
-  hetzner_ip: string;
-  business_name: string;
-  website_url: string | null;
-  webchatUrl?: string;
+  server_id: string;
+  ip: string | null;
   config: Record<string, unknown>;
+  exposed_secrets?: string[];
   created_at: string;
   updated_at: string;
+  // Convenience accessors for config fields
+  business_name?: string;
+  slug?: string;
+  hetzner_ip?: string;
+  webchatUrl?: string;
+  gateway_token?: string | null;
 };
 
 export type AgentRuntime = {
-  machineState: string;
   sshReachable: boolean;
   gatewayStatus: string;
-  openclawVersion: string | null;
-  imageRevision: string | null;
-  updateScriptPresent: boolean;
+  version: string | null;
+  runtime?: string;
+  // Legacy compat
+  openclawVersion?: string | null;
+  imageRevision?: string | null;
+  machineState?: string;
+  updateScriptPresent?: boolean;
 };
 
-export function createAgent(data: Record<string, unknown>) {
-  return api<{ success: boolean; agent: Agent }>("/api/agents", {
+export function createAgent(data: {
+  name: string;
+  runtime?: string;
+  model?: string;
+  exposedSecrets?: string[];
+  files?: Record<string, string>;
+  config?: Record<string, unknown>;
+  // Tevy2-specific fields passed through
+  ownerName?: string;
+  businessName?: string;
+  [key: string]: unknown;
+}) {
+  return api<{ id: string; name: string; runtime: string; state: string; ip: string | null; agent?: Agent }>("/v1/agents", {
     method: "POST",
     body: data,
   });
 }
 
 export function listAgents() {
-  return api<{ agents: Agent[] }>("/api/agents");
+  return api<{ agents: Agent[] }>("/v1/agents");
 }
 
 export function getAgent(id: string) {
-  return api<Agent>(`/api/agents/${id}`);
+  return api<Agent>(`/v1/agents/${id}`);
 }
 
 export function getAgentRuntime(id: string) {
-  return api<AgentRuntime>(`/api/agents/${id}/runtime`);
+  return api<AgentRuntime>(`/v1/agents/${id}/runtime`);
 }
 
 export function startAgent(id: string) {
-  return api<{ success: boolean; state: string }>(`/api/agents/${id}/start`, {
+  return api<{ success: boolean; state: string }>(`/v1/agents/${id}/start`, {
     method: "POST",
   });
 }
 
 export function stopAgent(id: string) {
-  return api<{ success: boolean; state: string }>(`/api/agents/${id}/stop`, {
+  return api<{ success: boolean; state: string }>(`/v1/agents/${id}/stop`, {
     method: "POST",
   });
 }
 
 export function deleteAgent(id: string) {
-  return api<{ success: boolean }>(`/api/agents/${id}`, { method: "DELETE" });
+  return api<{ success: boolean }>(`/v1/agents/${id}`, { method: "DELETE" });
 }
 
 export function updateAgent(id: string) {
-  return api<{ success: boolean; output: string; runtime: AgentRuntime }>(`/api/agents/${id}/update`, {
+  return api<{ success: boolean; output: string; runtime: AgentRuntime }>(`/v1/agents/${id}/update`, {
     method: "POST",
   });
 }
 
 export function backupAgent(id: string) {
-  return api<{ success: boolean; path: string }>(`/api/agents/${id}/backup`, {
+  return api<{ success: boolean; path: string }>(`/v1/agents/${id}/backup`, {
     method: "POST",
   });
 }
@@ -130,13 +149,12 @@ export function getBootStatus(id: string) {
     progress: number;
     message: string;
     ready: boolean;
-    webchatUrl?: string;
-  }>(`/api/agents/${id}/boot-status`);
+  }>(`/v1/agents/${id}/boot-status`);
 }
 
 export function readAgentFile(id: string, filePath: string) {
   return api<{ path: string; content: string }>(
-    `/api/agents/${id}/files/${filePath}`
+    `/v1/agents/${id}/files/${filePath}`
   );
 }
 
@@ -147,19 +165,42 @@ export function writeAgentFile(
   encoding: "utf8" | "base64" = "utf8"
 ) {
   return api<{ success: boolean; path: string }>(
-    `/api/agents/${id}/files/${filePath}`,
+    `/v1/agents/${id}/files/${filePath}`,
     { method: "PUT", body: { content, encoding } }
   );
 }
 
 export function execOnAgent(id: string, command: string) {
   return api<{ stdout: string; stderr: string; exitCode: number }>(
-    `/api/agents/${id}/ssh`,
+    `/v1/agents/${id}/ssh`,
     { method: "POST", body: { command } }
   );
 }
 
-// ── WhatsApp Channel ───────────────────────────────────────────────────
+// ── Secrets ───────────────────────────────────────────────────────────
+
+export function putSecrets(secrets: Record<string, string>) {
+  return api<{ success: boolean; keys: string[] }>("/v1/secrets", {
+    method: "PUT",
+    body: secrets,
+  });
+}
+
+export function listSecrets() {
+  return api<{ keys: { name: string; scope: string; created_at: string }[] }>("/v1/secrets");
+}
+
+// ── Usage ─────────────────────────────────────────────────────────────
+
+export function getAccountUsage(days = 30) {
+  return api<Record<string, unknown>>(`/v1/usage?days=${days}`);
+}
+
+export function getAgentUsage(id: string, days = 30) {
+  return api<Record<string, unknown>>(`/v1/agents/${id}/usage?days=${days}`);
+}
+
+// ── WhatsApp (stubs — channel management TBD) ────────────────────────
 
 export type WhatsAppStatus = {
   configured: boolean;
@@ -179,24 +220,21 @@ export type WhatsAppQR = {
   message: string;
 };
 
-export function setupWhatsApp(agentId: string, data: { phoneNumber?: string; dmPolicy?: string }) {
-  return api<{ success: boolean; message: string }>(
-    `/api/agents/${agentId}/channels/whatsapp/setup`,
-    { method: "POST", body: data }
-  );
+export function setupWhatsApp(_agentId: string, _data: { phoneNumber?: string; dmPolicy?: string }) {
+  return Promise.resolve({ success: false, message: "WhatsApp channel management coming soon" });
 }
 
-export function getWhatsAppStatus(agentId: string) {
-  return api<WhatsAppStatus>(`/api/agents/${agentId}/channels/whatsapp/status`);
+export function getWhatsAppStatus(_agentId: string): Promise<WhatsAppStatus> {
+  return Promise.resolve({
+    configured: false, linked: false, hasCreds: false, running: false,
+    statusLine: null, message: "WhatsApp channel management coming soon",
+  });
 }
 
-export function getWhatsAppQR(agentId: string) {
-  return api<WhatsAppQR>(`/api/agents/${agentId}/channels/whatsapp/qr`);
+export function getWhatsAppQR(_agentId: string): Promise<WhatsAppQR> {
+  return Promise.resolve({ linked: false, qr: null, message: "Not available" });
 }
 
-export function disconnectWhatsApp(agentId: string) {
-  return api<{ success: boolean; message: string }>(
-    `/api/agents/${agentId}/channels/whatsapp/disconnect`,
-    { method: "POST" }
-  );
+export function disconnectWhatsApp(_agentId: string) {
+  return Promise.resolve({ success: false, message: "WhatsApp channel management coming soon" });
 }

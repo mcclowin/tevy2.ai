@@ -2,30 +2,25 @@
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
-// Send magic link via backend → Stytch (or instant dev login)
+// Send magic link via BotBoot → Stytch
 export async function sendMagicLink(email: string) {
-  const res = await fetch(`${API_URL}/api/auth/magic-link`, {
+  const res = await fetch(`${API_URL}/v1/auth/magic-link`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email }),
+    body: JSON.stringify({
+      email,
+      redirectUrl: `${window.location.origin}/auth/callback`,
+    }),
   });
 
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || "Failed to send magic link");
-
-  // Dev bypass: backend returns session_token directly, skip magic link flow
-  if (data.dev_bypass && data.session_token) {
-    localStorage.setItem("tevy_session_token", data.session_token);
-    localStorage.setItem("tevy_user_id", data.user.id);
-    localStorage.setItem("tevy_user_email", data.user.email);
-  }
-
   return data;
 }
 
 // Authenticate magic link token (called from /auth/callback)
 export async function authenticateToken(token: string) {
-  const res = await fetch(`${API_URL}/api/auth/authenticate`, {
+  const res = await fetch(`${API_URL}/v1/auth/authenticate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ token }),
@@ -48,7 +43,7 @@ export function getSessionToken(): string | null {
   return localStorage.getItem("tevy_session_token");
 }
 
-// Get access token for API calls (alias for consistency)
+// Get access token for API calls
 export async function getAccessToken(): Promise<string | null> {
   return getSessionToken();
 }
@@ -58,18 +53,17 @@ export function isAuthenticated(): boolean {
   return !!getSessionToken();
 }
 
-// Get current user info from backend
+// Get current user info from BotBoot
 export async function getUser() {
   const token = getSessionToken();
   if (!token) return null;
 
   try {
-    const res = await fetch(`${API_URL}/api/auth/me`, {
+    const res = await fetch(`${API_URL}/v1/auth/me`, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
     if (!res.ok) {
-      // Session expired — clear stored data
       if (res.status === 401) signOut();
       return null;
     }
@@ -84,19 +78,15 @@ export async function getUser() {
 export async function signOut() {
   const token = getSessionToken();
 
-  // Tell backend to revoke session
   if (token) {
     try {
-      await fetch(`${API_URL}/api/auth/logout`, {
+      await fetch(`${API_URL}/v1/auth/logout`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
-    } catch {
-      // Best effort
-    }
+    } catch {}
   }
 
-  // Clear local storage
   localStorage.removeItem("tevy_session_token");
   localStorage.removeItem("tevy_user_id");
   localStorage.removeItem("tevy_user_email");
