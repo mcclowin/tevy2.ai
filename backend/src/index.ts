@@ -13,8 +13,6 @@ import { serve } from "@hono/node-server";
 import { env } from "./env.js";
 import authRoutes from "./routes/auth.js";
 import agentRoutes from "./routes/agents.js";
-import socialRoutes from "./routes/social.js";
-import channelRoutes from "./routes/channels.js";
 
 const app = new Hono();
 
@@ -36,8 +34,6 @@ app.get("/health", (c) => c.json({ status: "ok", service: "tevy2-backend" }));
 // Routes
 app.route("/api/auth", authRoutes);
 app.route("/api/agents", agentRoutes);
-app.route("/api/agents", channelRoutes);  // /api/agents/:id/channels/*
-app.route("/api/social", socialRoutes);
 
 // 404
 app.notFound((c) => c.json({ error: "Not found" }, 404));
@@ -50,6 +46,7 @@ app.onError((err, c) => {
 
 // Start
 console.log(`🚀 tevy2 backend starting on port ${env.PORT}`);
+console.log(`🔌 BotBoot target: ${env.BOTBOOT_API_URL}`);
 const server = serve({ fetch: app.fetch, port: env.PORT, hostname: "0.0.0.0" });
 console.log(`✅ tevy2 backend running at http://localhost:${env.PORT}`);
 

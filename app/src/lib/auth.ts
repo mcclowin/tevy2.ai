@@ -1,35 +1,42 @@
 "use client";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002";
 
-// Send magic link via BotBoot → Stytch
 export async function sendMagicLink(email: string) {
-  const res = await fetch(`${API_URL}/v1/auth/magic-link`, {
+  const res = await fetch(`${API_URL}/api/auth/magic-link`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      email,
-      redirectUrl: `${window.location.origin}/auth/callback`,
-    }),
+    body: JSON.stringify({ email }),
   });
 
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "Failed to send magic link");
+  if (!res.ok) {
+    console.error("magic-link failed", { status: res.status, data });
+    throw new Error(data.error || "Failed to send magic link");
+  }
+
+  if (data.dev_bypass && data.session_token) {
+    localStorage.setItem("tevy_session_token", data.session_token);
+    localStorage.setItem("tevy_user_id", data.user.id);
+    localStorage.setItem("tevy_user_email", data.user.email);
+  }
+
   return data;
 }
 
-// Authenticate magic link token (called from /auth/callback)
 export async function authenticateToken(token: string) {
-  const res = await fetch(`${API_URL}/v1/auth/authenticate`, {
+  const res = await fetch(`${API_URL}/api/auth/authenticate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ token }),
   });
 
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "Authentication failed");
+  if (!res.ok) {
+    console.error("authenticate failed", { status: res.status, data });
+    throw new Error(data.error || "Authentication failed");
+  }
 
-  // Store session token
   localStorage.setItem("tevy_session_token", data.session_token);
   localStorage.setItem("tevy_user_id", data.user.id);
   localStorage.setItem("tevy_user_email", data.user.email);
@@ -37,29 +44,25 @@ export async function authenticateToken(token: string) {
   return data;
 }
 
-// Get stored session token
 export function getSessionToken(): string | null {
   if (typeof window === "undefined") return null;
   return localStorage.getItem("tevy_session_token");
 }
 
-// Get access token for API calls
 export async function getAccessToken(): Promise<string | null> {
   return getSessionToken();
 }
 
-// Check if user is authenticated
 export function isAuthenticated(): boolean {
   return !!getSessionToken();
 }
 
-// Get current user info from BotBoot
 export async function getUser() {
   const token = getSessionToken();
   if (!token) return null;
 
   try {
-    const res = await fetch(`${API_URL}/v1/auth/me`, {
+    const res = await fetch(`${API_URL}/api/auth/me`, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -74,13 +77,12 @@ export async function getUser() {
   }
 }
 
-// Sign out
 export async function signOut() {
   const token = getSessionToken();
 
   if (token) {
     try {
-      await fetch(`${API_URL}/v1/auth/logout`, {
+      await fetch(`${API_URL}/api/auth/logout`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });

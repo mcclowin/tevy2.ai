@@ -592,7 +592,7 @@ function OnboardingPanel({ onComplete }: { onComplete: (agent: Agent) => void })
         telegramBotToken: form.addTelegram ? form.telegramBotToken : undefined,
       });
       setBootStatus({ stage: "provisioning", progress: 15, message: "Provisioning VPS...", ready: false });
-      pollBoot(result.id);
+      pollBoot(result.agent.id);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Deploy failed";
       setError(msg);
@@ -1667,10 +1667,10 @@ function SettingsTab({ agentData, liveStatus, setLiveStatus, setHasAgent }: {
     setUpdateMessage(null);
     try {
       const result = await updateAgent(agentData.id);
-      setRuntime(result.runtime);
+      setRuntime(result.runtime || null);
       setRuntimeError(null);
       setUpdateMessage(
-        `Update complete. OpenClaw ${result.runtime.openclawVersion || "unknown"} · image ${result.runtime.imageRevision || "unknown"}`
+        `Update complete. OpenClaw ${result.runtime?.openclawVersion || "unknown"} · image ${result.runtime?.imageRevision || "unknown"}`
       );
     } catch (err) {
       alert(err instanceof Error ? err.message : "Update failed");
