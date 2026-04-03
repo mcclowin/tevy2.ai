@@ -146,6 +146,32 @@ function parseBrandProfile(md: string): { form: BrandFormData; accounts: SocialA
   return { form, accounts };
 }
 
+function brandFormFromAgent(agent: Agent | null): { form: BrandFormData; accounts: SocialAccount[] } {
+  const cfg = (agent?.config || {}) as Record<string, unknown>;
+  const socials = (cfg.socials && typeof cfg.socials === "object" ? cfg.socials : {}) as Record<string, string>;
+  const accounts: SocialAccount[] = [
+    ["Instagram", socials.instagram || ""],
+    ["TikTok", socials.tiktok || ""],
+    ["LinkedIn", socials.linkedin || ""],
+    ["X/Twitter", socials.twitter || ""],
+    ["Facebook", socials.facebook || ""],
+  ]
+    .filter(([, handle]) => handle)
+    .map(([platform, handle]) => ({ platform, handle, connected: false }));
+
+  return {
+    form: {
+      businessName: typeof cfg.businessName === "string" ? cfg.businessName : (agent?.business_name || ""),
+      websiteUrl: typeof cfg.websiteUrl === "string" ? cfg.websiteUrl : "",
+      industry: typeof cfg.industry === "string" ? cfg.industry : "",
+      brandVoice: typeof cfg.brandVoice === "string" ? cfg.brandVoice : "",
+      targetAudience: typeof cfg.targetAudience === "string" ? cfg.targetAudience : "",
+      postingGoal: typeof cfg.postingGoal === "string" ? cfg.postingGoal : "",
+    },
+    accounts,
+  };
+}
+
 function serializeBrandProfile(form: BrandFormData, accounts: SocialAccount[]): string {
   let md = `# Brand Profile\n\n`;
   md += `**Name:** ${form.businessName}\n`;
@@ -395,7 +421,18 @@ export default function DashboardPage() {
           const agent = agents[0];
           setAgentData(agent);
           setHasAgent(true);
-          setLiveStatus(agent.liveStatus || agent.state || "unknown");
+
+          let nextStatus = agent.liveStatus || agent.state || "unknown";
+          if (nextStatus === "provisioning") {
+            try {
+              const boot = await getBootStatus(agent.id);
+              if (boot.ready) nextStatus = "running";
+            } catch {
+              // ignore boot-status reconciliation failure
+            }
+          }
+
+          setLiveStatus(nextStatus);
         }
       } catch {
         console.warn("Could not reach API to check agents");
@@ -557,7 +594,7 @@ function OnboardingPanel({ onComplete }: { onComplete: (agent: Agent) => void })
           setTimeout(async () => {
             try {
               const { agents } = await listAgents();
-              if (agents?.[0]) onComplete(agents[0]);
+              if (agents?.[0]) onComplete({ ...agents[0], state: "running", liveStatus: "running" });
             } catch {
               // Fallback
             }
@@ -910,6 +947,10 @@ function BrandTab({ agentData }: { agentData: Agent | null }) {
           const parsed = parseBrandProfile(profile.content);
           setBrandForm(parsed.form);
           setSocialAccounts(parsed.accounts);
+        } else {
+          const fallback = brandFormFromAgent(agentData);
+          setBrandForm(fallback.form);
+          setSocialAccounts(fallback.accounts);
         }
 
         if (assetIndex.content) {

@@ -52,6 +52,35 @@ function webchatUrl(slug?: string): string | null {
   return `https://${slug}.${env.HETZNER_AGENT_DOMAIN}`;
 }
 
+function brandProfileMarkdown(input: {
+  businessName: string;
+  websiteUrl?: string;
+  postingGoal?: string;
+  industry?: string;
+  brandVoice?: string;
+  targetAudience?: string;
+  socials?: Record<string, string>;
+}) {
+  const socials = input.socials || {};
+  const socialLines = [
+    ["Instagram", socials.instagram || ""],
+    ["TikTok", socials.tiktok || ""],
+    ["LinkedIn", socials.linkedin || ""],
+    ["X/Twitter", socials.twitter || ""],
+    ["Facebook", socials.facebook || ""],
+  ]
+    .filter(([, handle]) => handle)
+    .map(([platform, handle]) => `- **${platform}**: ${handle}`)
+    .join("\n");
+
+  return `# Brand Profile\n\n**Name:** ${input.businessName}\n**Website:** ${input.websiteUrl || ""}\n**Industry:** ${input.industry || ""}\n**Brand Voice:**\n${input.brandVoice || ""}\n**Target Audience:**\n${input.targetAudience || ""}\n**Posting Goal:** ${input.postingGoal || "3-4 posts per week"}\n${socialLines ? `\n## Social Presence\n\n${socialLines}\n` : ""}`;
+}
+
+function getFilePath(rawPath: string, id: string): string {
+  const prefix = `/api/agents/${id}/files/`;
+  return rawPath.startsWith(prefix) ? decodeURIComponent(rawPath.slice(prefix.length)) : "";
+}
+
 function normalize(agent: BotBootAgent, row?: TevyAgentRow | null) {
   const cfg = { ...(row?.config || {}), ...(agent.config || {}) } as Record<string, unknown>;
   const slug = typeof cfg.slug === "string" ? cfg.slug : row?.slug || slugify(agent.name);
@@ -120,12 +149,6 @@ agents.post("/", async (c) => {
 
   try {
     const slug = slugify(businessName);
-    const files: Record<string, string> = {
-      "IDENTITY.md": `# IDENTITY.md\n\n- Name: ${businessName} Marketing Bot\n- Slug: ${slug}\n`,
-      "USER.md": `# USER.md\n\n- Business: ${businessName}\n- Owner: ${body.ownerName || ""}\n- Website: ${body.websiteUrl || ""}\n`,
-      "SOUL.md": `# SOUL.md\n\nYou are the marketing operations assistant for ${businessName}. Keep outputs concise, practical, and brand-aligned.\n`,
-    };
-
     const tevyConfig = {
       tevyUserId: userId,
       tevyUserEmail: userEmail,
@@ -143,6 +166,20 @@ agents.post("/", async (c) => {
       competitors: body.competitors || "",
       postingGoal: body.postingGoal || "3-4 posts per week",
       webchatUrl: webchatUrl(slug),
+    };
+
+    const files: Record<string, string> = {
+      "IDENTITY.md": `# IDENTITY.md\n\n- Name: ${businessName} Marketing Bot\n- Slug: ${slug}\n`,
+      "USER.md": `# USER.md\n\n- Business: ${businessName}\n- Owner: ${body.ownerName || ""}\n- Website: ${body.websiteUrl || ""}\n`,
+      "SOUL.md": `# SOUL.md\n\nYou are the marketing operations assistant for ${businessName}. Keep outputs concise, practical, and brand-aligned.\n`,
+      "memory/brand-profile.md": brandProfileMarkdown({
+        businessName,
+        websiteUrl: body.websiteUrl || "",
+        postingGoal: body.postingGoal || "3-4 posts per week",
+        socials: tevyConfig.socials,
+      }),
+      "memory/activity-log.md": "# Activity Log\n\n",
+      "brand-assets/index.json": JSON.stringify({ assets: [] }, null, 2),
     };
 
     const created = await botboot.post<BotBootAgent>("/v1/agents", {
@@ -286,8 +323,9 @@ agents.get("/:id/boot-status", async (c) => {
 
 agents.get("/:id/files/*", async (c) => {
   try {
-    const { row } = await getOwnedAgentOr404(c.get("accountId"), c.req.param("id"));
-    const path = c.req.param("*");
+    const id = c.req.param("id");
+    const { row } = await getOwnedAgentOr404(c.get("accountId"), id);
+    const path = getFilePath(c.req.path, id);
     const botbootAgentId = typeof row.config?.botbootAgentId === "string" ? row.config.botbootAgentId : row.id;
     const result = await botboot.get<Record<string, unknown>>(`/v1/agents/${botbootAgentId}/files/${path}`);
     return c.json(result);
@@ -298,8 +336,9 @@ agents.get("/:id/files/*", async (c) => {
 
 agents.put("/:id/files/*", async (c) => {
   try {
-    const { row } = await getOwnedAgentOr404(c.get("accountId"), c.req.param("id"));
-    const path = c.req.param("*");
+    const id = c.req.param("id");
+    const { row } = await getOwnedAgentOr404(c.get("accountId"), id);
+    const path = getFilePath(c.req.path, id);
     const body = await c.req.json();
     const botbootAgentId = typeof row.config?.botbootAgentId === "string" ? row.config.botbootAgentId : row.id;
     const result = await botboot.put<Record<string, unknown>>(`/v1/agents/${botbootAgentId}/files/${path}`, body);
