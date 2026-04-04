@@ -509,7 +509,7 @@ export default function DashboardPage() {
           <OnboardingPanel onComplete={(agent) => {
             setAgentData(agent);
             setHasAgent(true);
-            setLiveStatus("provisioning");
+            setLiveStatus(agent.liveStatus || agent.state || "unknown");
           }} />
         ) : (
           <>
