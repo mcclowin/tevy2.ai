@@ -599,12 +599,31 @@ function OnboardingPanel({ onComplete }: { onComplete: (agent: Agent) => void })
   };
 
   const canDeploy = form.businessName && (!form.addTelegram || form.telegramBotToken);
+  const progress = bootStatus?.progress || 0;
+  const stage = bootStatus?.stage || "creating";
+  const stepLabels = [
+    { label: "Creating your bot", threshold: 15 },
+    { label: "Starting its computer", threshold: 40 },
+    { label: "Installing Tevy", threshold: 60 },
+    { label: "Connecting chat", threshold: 80 },
+    { label: "Ready", threshold: 100 },
+  ];
+  const stageExplainer =
+    stage === "creating" ? "We’re creating your Tevy bot and preparing its workspace." :
+    stage === "provisioning" ? "We’re setting up its own computer in the cloud." :
+    stage === "booting" ? "That new computer is waking up so we can log into it." :
+    stage === "installing" ? "We’re installing Tevy, OpenClaw, and your starter workspace." :
+    stage === "gateway" ? "We’re bringing Tevy online so you can chat with it." :
+    stage === "ready" ? "Everything is live. Your bot is ready." :
+    stage === "offline" ? "The machine is currently offline." :
+    error ? "Something went wrong while setting things up." :
+    "We’re getting everything ready for you.";
 
   return (
     <div className="p-8 max-w-2xl mx-auto">
       <h1 className="text-2xl font-bold mb-2">Set up your marketing agent</h1>
       <p className="text-sm text-[var(--muted)] mb-8">
-        Fill in your details and deploy. Takes about 2 minutes.
+        Just the basics for now. You can fill in the rest later.
       </p>
 
       {/* Business Info */}
@@ -661,20 +680,8 @@ function OnboardingPanel({ onComplete }: { onComplete: (agent: Agent) => void })
           </div>
         )}
 
-        {/* WhatsApp option (setup after deploy via Settings) */}
-        <div className="w-full glass rounded-xl p-4 mb-3 border border-transparent hover:border-[var(--border)] opacity-80">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-lg bg-[#25D366] flex items-center justify-center text-white text-xl">📱</div>
-            <div className="flex-1">
-              <div className="font-semibold text-sm">WhatsApp</div>
-              <p className="text-xs text-[var(--muted)]">Connect via QR code after deploy — go to Settings → Chat Channels</p>
-            </div>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--surface-light)] text-[var(--muted)]">Post-deploy</span>
-          </div>
-        </div>
-
-        <div className="flex gap-2">
-          {[{ icon: "🎮", name: "Discord" }, { icon: "💬", name: "Slack" }].map((ch) => (
+        <div className="flex gap-2 flex-wrap">
+          {[{ icon: "📱", name: "WhatsApp" }, { icon: "🎮", name: "Discord" }, { icon: "💬", name: "Slack" }].map((ch) => (
             <div key={ch.name} className="glass rounded-lg px-3 py-2 opacity-40 text-xs flex items-center gap-1.5">
               <span>{ch.icon}</span>
               <span className="text-[var(--muted)]">{ch.name} — soon</span>
@@ -690,7 +697,38 @@ function OnboardingPanel({ onComplete }: { onComplete: (agent: Agent) => void })
         </button>
       ) : (
         <div className="glass rounded-xl p-6">
-          <div className="flex items-center gap-3 mb-4">
+          <div className="mb-5 rounded-2xl border border-[var(--border)] bg-[linear-gradient(180deg,rgba(16,185,129,0.08),rgba(59,130,246,0.05))] p-5 overflow-hidden relative">
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"></div>
+            <div className="flex items-end justify-between gap-4">
+              <div>
+                <div className="text-xs uppercase tracking-[0.2em] text-[var(--muted)] mb-2">Provisioning</div>
+                <div className="flex items-center gap-3">
+                  <div className="relative w-16 h-16 rounded-2xl bg-[var(--surface-light)] border border-[var(--border)] flex items-center justify-center">
+                    <div className="text-3xl">🤖</div>
+                    {!bootStatus?.ready && !error && (
+                      <>
+                        <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-[var(--accent)] animate-ping"></div>
+                        <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-[var(--accent)]"></div>
+                      </>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-lg font-semibold">
+                      {error ? "Something went wrong" : bootStatus?.ready ? "Your Tevy bot is live" : "Building your Tevy bot"}
+                    </div>
+                    <p className="text-sm text-[var(--muted)] mt-1">{stageExplainer}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="hidden sm:flex items-end gap-2 self-center">
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <div key={i} className="w-2 rounded-full bg-[var(--accent-light)]/80 animate-pulse" style={{ height: `${16 + ((i + Math.floor(progress / 20)) % 5) * 8}px`, animationDelay: `${i * 120}ms` }}></div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 mb-3">
             {bootStatus?.ready ? (
               <div className="w-3 h-3 rounded-full bg-green-500"></div>
             ) : error ? (
@@ -705,21 +743,15 @@ function OnboardingPanel({ onComplete }: { onComplete: (agent: Agent) => void })
 
           <div className="w-full h-2 bg-[var(--surface-light)] rounded-full overflow-hidden">
             <div className="h-full rounded-full transition-all duration-1000 ease-out" style={{
-              width: `${bootStatus?.progress || 0}%`,
+              width: `${progress}%`,
               background: error ? "#ef4444" : bootStatus?.ready ? "#22c55e" : "linear-gradient(90deg, var(--accent), var(--accent-light))",
             }}></div>
           </div>
 
-          <div className="flex justify-between mt-4 text-xs text-[var(--muted)]">
-            {[
-              { label: "Provision", threshold: 15 },
-              { label: "VPS Boot", threshold: 40 },
-              { label: "Install", threshold: 60 },
-              { label: "Gateway", threshold: 80 },
-              { label: "Ready", threshold: 100 },
-            ].map((s) => (
-              <span key={s.label} className={(bootStatus?.progress || 0) >= s.threshold ? "text-white font-medium" : ""}>
-                {(bootStatus?.progress || 0) >= s.threshold ? "✓ " : ""}{s.label}
+          <div className="flex justify-between gap-2 mt-4 text-xs text-[var(--muted)] flex-wrap">
+            {stepLabels.map((s) => (
+              <span key={s.label} className={progress >= s.threshold ? "text-white font-medium" : ""}>
+                {progress >= s.threshold ? "✓ " : ""}{s.label}
               </span>
             ))}
           </div>
