@@ -16,12 +16,6 @@ type OnboardingData = {
   telegramBotToken: string;
   ownerName: string;
   businessName: string;
-  websiteUrl: string;
-  instagram: string;
-  tiktok: string;
-  linkedin: string;
-  twitter: string;
-  facebook: string;
 };
 
 type BrandAsset = {
@@ -35,10 +29,6 @@ type BrandAsset = {
 type BrandFormData = {
   businessName: string;
   websiteUrl: string;
-  industry: string;
-  brandVoice: string;
-  targetAudience: string;
-  postingGoal: string;
 };
 
 type SocialAccount = {
@@ -101,10 +91,6 @@ function parseBrandProfile(md: string): { form: BrandFormData; accounts: SocialA
   const form: BrandFormData = {
     businessName: "",
     websiteUrl: "",
-    industry: "",
-    brandVoice: "",
-    targetAudience: "",
-    postingGoal: "",
   };
   const accounts: SocialAccount[] = [];
 
@@ -123,10 +109,6 @@ function parseBrandProfile(md: string): { form: BrandFormData; accounts: SocialA
 
   form.businessName = extract("Name") || extract("Business Name");
   form.websiteUrl = extract("Website");
-  form.industry = extract("Industry");
-  form.brandVoice = extractMultiline("Brand Voice") || extractMultiline("Tone");
-  form.targetAudience = extractMultiline("Target Audience") || extractMultiline("Audience");
-  form.postingGoal = extract("Posting Goal") || extract("Goal");
 
   const socialSection = md.match(/## Social Presence[\s\S]*?(?=\n## |$)/i);
   if (socialSection) {
@@ -163,10 +145,6 @@ function brandFormFromAgent(agent: Agent | null): { form: BrandFormData; account
     form: {
       businessName: typeof cfg.businessName === "string" ? cfg.businessName : (agent?.business_name || ""),
       websiteUrl: typeof cfg.websiteUrl === "string" ? cfg.websiteUrl : "",
-      industry: typeof cfg.industry === "string" ? cfg.industry : "",
-      brandVoice: typeof cfg.brandVoice === "string" ? cfg.brandVoice : "",
-      targetAudience: typeof cfg.targetAudience === "string" ? cfg.targetAudience : "",
-      postingGoal: typeof cfg.postingGoal === "string" ? cfg.postingGoal : "",
     },
     accounts,
   };
@@ -176,10 +154,6 @@ function serializeBrandProfile(form: BrandFormData, accounts: SocialAccount[]): 
   let md = `# Brand Profile\n\n`;
   md += `**Name:** ${form.businessName}\n`;
   md += `**Website:** ${form.websiteUrl}\n`;
-  md += `**Industry:** ${form.industry}\n`;
-  md += `**Brand Voice:**\n${form.brandVoice}\n`;
-  md += `**Target Audience:**\n${form.targetAudience}\n`;
-  md += `**Posting Goal:** ${form.postingGoal}\n`;
 
   if (accounts.length > 0) {
     md += `\n## Social Presence\n\n`;
@@ -568,12 +542,6 @@ function OnboardingPanel({ onComplete }: { onComplete: (agent: Agent) => void })
     telegramBotToken: "",
     ownerName: "",
     businessName: "",
-    websiteUrl: "",
-    instagram: "",
-    tiktok: "",
-    linkedin: "",
-    twitter: "",
-    facebook: "",
   });
 
   const update = (field: keyof OnboardingData, value: string | boolean) => {
@@ -619,13 +587,6 @@ function OnboardingPanel({ onComplete }: { onComplete: (agent: Agent) => void })
         name: form.businessName,
         ownerName: form.ownerName,
         businessName: form.businessName,
-        websiteUrl: form.websiteUrl,
-        instagram: form.instagram,
-        tiktok: form.tiktok,
-        linkedin: form.linkedin,
-        twitter: form.twitter,
-        facebook: form.facebook,
-        postingGoal: "3-4 posts per week",
         telegramBotToken: form.addTelegram ? form.telegramBotToken : undefined,
       });
       setBootStatus({ stage: "provisioning", progress: 15, message: "Provisioning VPS...", ready: false });
@@ -658,31 +619,6 @@ function OnboardingPanel({ onComplete }: { onComplete: (agent: Agent) => void })
             <label className="text-xs text-[var(--muted)] mb-1 block">Business name *</label>
             <input className="input-field" placeholder="Sunrise Coffee Co" value={form.businessName}
               onChange={(e) => update("businessName", e.target.value)} disabled={deploying} autoFocus />
-          </div>
-        </div>
-
-        <div>
-          <label className="text-xs text-[var(--muted)] mb-1 block">Website URL</label>
-          <input className="input-field" placeholder="https://sunrisecoffee.com" value={form.websiteUrl}
-            onChange={(e) => update("websiteUrl", e.target.value)} disabled={deploying} />
-        </div>
-
-        <div>
-          <label className="text-xs text-[var(--muted)] mb-1.5 block">Social accounts <span className="text-xs">(optional)</span></label>
-          <div className="space-y-2">
-            {([
-              { key: "instagram" as const, icon: "📸", placeholder: "@handle or URL" },
-              { key: "tiktok" as const, icon: "🎵", placeholder: "@handle or URL" },
-              { key: "linkedin" as const, icon: "💼", placeholder: "Company page URL" },
-              { key: "twitter" as const, icon: "𝕏", placeholder: "@handle" },
-              { key: "facebook" as const, icon: "📘", placeholder: "Page URL" },
-            ]).map((s) => (
-              <div key={s.key} className="flex items-center gap-2">
-                <span className="w-6 text-center text-sm">{s.icon}</span>
-                <input className="input-field !py-2 text-sm" placeholder={s.placeholder}
-                  value={form[s.key]} onChange={(e) => update(s.key, e.target.value)} disabled={deploying} />
-              </div>
-            ))}
           </div>
         </div>
       </div>
@@ -914,10 +850,6 @@ function BrandTab({ agentData }: { agentData: Agent | null }) {
   const [brandForm, setBrandForm] = useState<BrandFormData>({
     businessName: "",
     websiteUrl: "",
-    industry: "",
-    brandVoice: "",
-    targetAudience: "",
-    postingGoal: "",
   });
   const [socialAccounts, setSocialAccounts] = useState<SocialAccount[]>([]);
   const [newPlatform, setNewPlatform] = useState(PLATFORM_OPTIONS[0]);
@@ -1070,26 +1002,6 @@ function BrandTab({ agentData }: { agentData: Agent | null }) {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs text-[var(--muted)] mb-1 block">Industry</label>
-                  <input
-                    className="input-field"
-                    placeholder="e.g. SaaS, E-commerce, Food & Beverage"
-                    value={brandForm.industry}
-                    onChange={(e) => setBrandForm((f) => ({ ...f, industry: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-[var(--muted)] mb-1 block">Posting Goal</label>
-                  <input
-                    className="input-field"
-                    placeholder="3-4 posts per week"
-                    value={brandForm.postingGoal}
-                    onChange={(e) => setBrandForm((f) => ({ ...f, postingGoal: e.target.value }))}
-                  />
-                </div>
-              </div>
             </div>
           </div>
 
@@ -1159,34 +1071,6 @@ function BrandTab({ agentData }: { agentData: Agent | null }) {
 
             {message && <p className="text-xs text-green-400 mt-3">{message}</p>}
             {error && <p className="text-xs text-red-400 mt-3">{error}</p>}
-          </div>
-
-          {/* Brand Voice & Audience — secondary, below socials */}
-          <div className="glass rounded-xl p-6 mb-6">
-            <h3 className="font-semibold mb-1">🎨 Brand Voice & Audience</h3>
-            <p className="text-xs text-[var(--muted)] mb-4">Optional — helps your bot write in your style.</p>
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs text-[var(--muted)] mb-1 block">Brand Voice / Tone</label>
-                <textarea
-                  className="w-full bg-[var(--surface-light)] border border-[var(--border)] rounded-xl p-3 text-sm text-[var(--foreground)] focus:outline-none focus:border-[var(--accent)] resize-none"
-                  rows={2}
-                  placeholder="e.g. Professional but approachable, witty, concise..."
-                  value={brandForm.brandVoice}
-                  onChange={(e) => setBrandForm((f) => ({ ...f, brandVoice: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="text-xs text-[var(--muted)] mb-1 block">Target Audience</label>
-                <textarea
-                  className="w-full bg-[var(--surface-light)] border border-[var(--border)] rounded-xl p-3 text-sm text-[var(--foreground)] focus:outline-none focus:border-[var(--accent)] resize-none"
-                  rows={2}
-                  placeholder="e.g. Crypto investors, DeFi users on ICP/Stacks..."
-                  value={brandForm.targetAudience}
-                  onChange={(e) => setBrandForm((f) => ({ ...f, targetAudience: e.target.value }))}
-                />
-              </div>
-            </div>
           </div>
 
           {/* Brand Assets */}
