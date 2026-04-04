@@ -186,6 +186,8 @@ agents.post("/", async (c) => {
       competitors: body.competitors || "",
       postingGoal: body.postingGoal || "3-4 posts per week",
       webchatUrl: webchatUrl(slug),
+      telegramEnabled: Boolean(body.telegramBotToken),
+      chatChannel: body.telegramBotToken ? "telegram" : null,
     };
 
     const files: Record<string, string> = {

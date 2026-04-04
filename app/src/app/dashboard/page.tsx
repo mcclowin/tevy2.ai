@@ -830,13 +830,10 @@ function HomeTab({ agentData, liveStatus }: { agentData: Agent | null; liveStatu
           <div className="glass rounded-xl p-4">
             <div className="text-xs text-[var(--muted)] mb-1">Chat Channel</div>
             <div className="text-lg font-bold">
-              {(agentData?.config as Record<string, unknown>)?.telegramBotToken ? "Telegram" : "Not configured"}
+              {((agentData?.config as Record<string, unknown>)?.chatChannel === "telegram" || (agentData?.config as Record<string, unknown>)?.telegramEnabled)
+                ? "Telegram"
+                : "Not configured"}
             </div>
-          </div>
-          <div className="glass rounded-xl p-4">
-            <div className="text-xs text-[var(--muted)] mb-1">Server</div>
-            <div className="text-sm font-bold font-mono truncate">{agentData?.hetzner_ip || "—"}</div>
-            <div className="text-xs text-[var(--muted)] mt-1">Nuremberg, DE (€2.99/mo)</div>
           </div>
         </div>
 
