@@ -1753,71 +1753,48 @@ function SettingsTab({ agentData, liveStatus, setLiveStatus, setHasAgent }: {
         </div>
       </div>
 
-      {/* Social Accounts — accounts the bot manages */}
+      {/* Social Accounts — accounts the bot will track/manage later */}
       <div className="mb-8">
         <h3 className="text-sm font-semibold text-[var(--muted)] uppercase tracking-wide mb-3">Social Accounts</h3>
-        <p className="text-xs text-[var(--muted)] mb-3">Accounts your bot manages and posts to on your behalf. These are separate from chat channels.</p>
+        <p className="text-xs text-[var(--muted)] mb-3">Direct account connections are not part of the MVP yet. For now, add handles and URLs in Brand so Tevy knows what to track.</p>
         <div className="glass rounded-xl divide-y divide-[var(--border)]">
           {([
             {
-              icon: "📸",
-              name: "Instagram",
-              desc: "Post images, reels, and stories to your business Instagram",
-              color: "#E4405F",
-              connected: false,
-              requiresBusiness: true,
-            },
-            {
               icon: "💼",
               name: "LinkedIn",
-              desc: "Post updates to your company page or personal profile",
-              color: "#0A66C2",
-              connected: false,
-              requiresBusiness: false,
+              desc: "Best first use: track your company page and competitors, then add posting later.",
             },
             {
               icon: "𝕏",
               name: "X / Twitter",
-              desc: "Post tweets and threads from your business account",
-              color: "#000000",
-              connected: false,
-              requiresBusiness: false,
+              desc: "Best first use: monitor timelines, competitor posts, and draft content.",
+            },
+            {
+              icon: "📸",
+              name: "Instagram",
+              desc: "Track handles and media references first. Posting/auth comes later.",
             },
             {
               icon: "🎵",
               name: "TikTok",
-              desc: "Post videos to your TikTok business account",
-              color: "#000000",
-              connected: false,
-              requiresBusiness: true,
+              desc: "Keep as tracked account only for MVP.",
             },
             {
               icon: "📘",
               name: "Facebook",
-              desc: "Post to your Facebook Page",
-              color: "#1877F2",
-              connected: false,
-              requiresBusiness: true,
+              desc: "Keep as tracked page/account only for MVP.",
             },
           ]).map((account) => (
             <div key={account.name} className="flex items-center gap-4 p-4">
               <span className="text-xl w-8 text-center">{account.icon}</span>
               <div className="flex-1 min-w-0">
-                <div className="font-semibold text-sm">{account.name}</div>
+                <div className="font-semibold text-sm flex items-center gap-2">
+                  {account.name}
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--surface-light)] text-[var(--muted)]">MVP: tracked only</span>
+                </div>
                 <div className="text-xs text-[var(--muted)]">{account.desc}</div>
-                {account.requiresBusiness && (
-                  <div className="text-xs text-yellow-500/70 mt-0.5">Requires business account</div>
-                )}
               </div>
-              <button
-                className={`px-3 py-1.5 rounded-lg text-xs transition-colors ${
-                  account.connected
-                    ? "bg-green-500/20 text-green-400 border border-green-500/30"
-                    : "bg-[var(--surface-light)] text-[var(--muted)] hover:text-white border border-[var(--border)]"
-                }`}
-              >
-                {account.connected ? "Connected ✓" : "Connect"}
-              </button>
+              <span className="px-3 py-1.5 rounded-lg text-xs bg-[var(--surface-light)] text-[var(--muted)] border border-[var(--border)] flex-shrink-0">Coming later</span>
             </div>
           ))}
         </div>
@@ -1826,60 +1803,42 @@ function SettingsTab({ agentData, liveStatus, setLiveStatus, setHasAgent }: {
       {/* Tools & Integrations */}
       <div className="mb-8">
         <h3 className="text-sm font-semibold text-[var(--muted)] uppercase tracking-wide mb-3">Tools & Integrations</h3>
+        <p className="text-xs text-[var(--muted)] mb-3">This section is descriptive for MVP. Real per-account tool setup will come later.</p>
         <div className="glass rounded-xl divide-y divide-[var(--border)]">
           {([
             {
-              key: "webSearch" as const,
-              icon: "🔍",
-              name: "Web Search (Brave API)",
-              desc: "Live competitor monitoring, trend detection",
-              status: toolToggles.webSearch ? "Enabled" : "Not configured",
-              included: false,
-            },
-            {
-              key: "imageGen" as const,
-              icon: "🎨",
-              name: "Image Generation (Higgsfield)",
-              desc: "AI-generated visuals for posts",
-              status: toolToggles.imageGen ? "Enabled" : "Not configured",
-              included: false,
-            },
-            {
-              key: "emailOutreach" as const,
-              icon: "📧",
-              name: "Email Outreach (AgentMail)",
-              desc: "Send newsletters and outreach",
-              status: toolToggles.emailOutreach ? "Enabled" : "Not configured",
-              included: false,
-            },
-            {
-              key: "deepSearch" as const,
               icon: "🔎",
               name: "Deep Search (Tavily)",
-              desc: "Advanced web research",
-              status: "Included with plan ✅",
-              included: true,
+              desc: "Advanced web research for content and competitor analysis.",
+              status: "Included by platform",
+            },
+            {
+              icon: "🔍",
+              name: "Web Search",
+              desc: "General web search and monitoring capabilities.",
+              status: "Platform-managed",
+            },
+            {
+              icon: "🎨",
+              name: "Image Generation (Higgsfield)",
+              desc: "Potential future image/video generation integration.",
+              status: "Under evaluation",
+            },
+            {
+              icon: "📧",
+              name: "Email Outreach",
+              desc: "Not active in MVP. Would require explicit approval and mail setup.",
+              status: "Coming later",
             },
           ]).map((tool) => (
-            <div key={tool.key} className="flex items-center gap-4 p-4">
+            <div key={tool.name} className="flex items-center gap-4 p-4">
               <span className="text-xl w-8 text-center">{tool.icon}</span>
               <div className="flex-1 min-w-0">
                 <div className="font-semibold text-sm">{tool.name}</div>
                 <div className="text-xs text-[var(--muted)]">{tool.desc}</div>
-                <div className={`text-xs mt-0.5 ${tool.included || toolToggles[tool.key] ? "text-green-400" : "text-[var(--muted)]"}`}>
-                  Status: {tool.status}
-                </div>
+                <div className="text-xs mt-0.5 text-[var(--muted)]">Status: {tool.status}</div>
               </div>
-              <button
-                onClick={() => toggleTool(tool.key)}
-                className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${
-                  toolToggles[tool.key] ? "bg-[var(--accent)]" : "bg-[var(--surface-light)] border border-[var(--border)]"
-                }`}
-              >
-                <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
-                  toolToggles[tool.key] ? "translate-x-5" : "translate-x-0.5"
-                }`}></div>
-              </button>
+              <span className="px-3 py-1.5 rounded-lg text-xs bg-[var(--surface-light)] text-[var(--muted)] border border-[var(--border)] flex-shrink-0">Info only</span>
             </div>
           ))}
         </div>
