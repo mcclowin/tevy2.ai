@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { sendMagicLink, isAuthenticated } from "@/lib/auth";
+import { sendMagicLink, getUser } from "@/lib/auth";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -12,11 +12,11 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Redirect if already logged in
+  // Redirect if already logged in (validate token with backend)
   useEffect(() => {
-    if (isAuthenticated()) {
-      router.push("/dashboard");
-    }
+    getUser().then((user) => {
+      if (user) router.push("/dashboard");
+    });
   }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {

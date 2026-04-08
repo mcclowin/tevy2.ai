@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { sendMagicLink, isAuthenticated } from "@/lib/auth";
+import { sendMagicLink, getUser } from "@/lib/auth";
 
 export default function SetupPage() {
   const router = useRouter();
@@ -13,11 +13,11 @@ export default function SetupPage() {
   const [loading, setLoading] = useState(false);
   const [cooldown, setCooldown] = useState(0);
 
-  // Redirect if already logged in
+  // Redirect if already logged in (validate token with backend)
   useEffect(() => {
-    if (isAuthenticated()) {
-      router.push("/dashboard");
-    }
+    getUser().then((user) => {
+      if (user) router.push("/dashboard");
+    });
   }, [router]);
 
   // Cooldown timer

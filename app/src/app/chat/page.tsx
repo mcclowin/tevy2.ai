@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { isAuthenticated } from "@/lib/auth";
+import { getUser } from "@/lib/auth";
 import { listAgents, type Agent } from "@/lib/api";
 import { getAgentControlUiUrl } from "@/lib/control-ui";
 
@@ -14,9 +14,13 @@ export default function ChatPage() {
   const [agent, setAgent] = useState<Agent | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated()) {
-      router.push("/login");
-      return;
+    async function init() {
+      const user = await getUser();
+      if (!user) {
+        router.push("/login");
+        return;
+      }
+      loadAgent();
     }
 
     async function loadAgent() {
@@ -35,7 +39,7 @@ export default function ChatPage() {
       }
     }
 
-    void loadAgent();
+    void init();
   }, [router]);
 
   const controlUiUrl = getAgentControlUiUrl(agent);

@@ -9,7 +9,7 @@ import {
   setupWhatsApp, getWhatsAppStatus, getWhatsAppQR, disconnectWhatsApp,
   type Agent, type AgentRuntime, type WhatsAppStatus, type WhatsAppQR,
 } from "@/lib/api";
-import { signOut, isAuthenticated, getUser } from "@/lib/auth";
+import { signOut, getUser } from "@/lib/auth";
 
 type OnboardingData = {
   addTelegram: boolean;
@@ -369,12 +369,8 @@ export default function DashboardPage() {
   const [authChecked, setAuthChecked] = useState(false);
   const [agentData, setAgentData] = useState<Agent | null>(null);
 
-  // Auth guard
+  // Auth guard — validate token with backend
   useEffect(() => {
-    if (!isAuthenticated()) {
-      router.push("/login");
-      return;
-    }
     getUser().then((user) => {
       if (!user) {
         router.push("/login");

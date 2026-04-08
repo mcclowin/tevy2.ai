@@ -125,8 +125,11 @@ auth.get("/me", async (c) => {
     return c.json({ error: "Not authenticated" }, 401);
   }
 
-  // Dev bypass: extract account ID from dev token
+  // Dev bypass: extract account ID from dev token (only when bypass enabled)
   if (sessionToken.startsWith("dev_")) {
+    if (!env.DEV_BYPASS_AUTH) {
+      return c.json({ error: "Not authenticated" }, 401);
+    }
     const accountId = sessionToken.replace("dev_", "");
     const account = await one<{ id: string; email: string }>(
       "select id, email from public.accounts where id = $1 limit 1",
