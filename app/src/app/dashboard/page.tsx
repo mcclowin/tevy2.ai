@@ -1720,6 +1720,18 @@ function SettingsTab({ agentData, liveStatus, setLiveStatus, setHasAgent }: {
       const slug = agentData.slug || "";
       const identityMd = `# IDENTITY.md\n\n- **Name:** ${name}\n- **Role:** Marketing concierge for ${businessName}\n- **Business:** ${businessName}\n- **Slug:** ${slug}\n- **Platform:** tevy2.ai\n- **Workspace:** Customer-owned OpenClaw workspace\n`;
       await writeAgentFile(agentData.id, "IDENTITY.md", identityMd);
+
+      // Also update SOUL.md name references
+      try {
+        const soul = await readAgentFile(agentData.id, "SOUL.md");
+        if (soul.content) {
+          const updated = soul.content
+            .replace(/# SOUL\.md — .+?, Your/, `# SOUL.md — ${name}, Your`)
+            .replace(/You are \*\*.+?\*\*,/, `You are **${name}**,`);
+          await writeAgentFile(agentData.id, "SOUL.md", updated);
+        }
+      } catch { /* SOUL.md may not exist yet */ }
+
       setNameMessage("Bot name updated.");
     } catch {
       setNameMessage("Failed to update bot name.");
