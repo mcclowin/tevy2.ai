@@ -169,9 +169,21 @@ function parseActivityLog(md: string): ActivityEntry[] {
   const entries: ActivityEntry[] = [];
   const lines = md.split("\n");
   for (const line of lines) {
-    const match = line.match(/^-\s*\*\*(\d{1,2}:\d{2})\*\*\s*(\S+)\s+(.+)/);
-    if (match) {
-      entries.push({ time: match[1], emoji: match[2], summary: match[3] });
+    const richMatch = line.match(/^-\s*\*\*(\d{1,2}:\d{2})\*\*\s*(\S+)\s+(.+)/);
+    if (richMatch) {
+      entries.push({ time: richMatch[1], emoji: richMatch[2], summary: richMatch[3] });
+      continue;
+    }
+
+    const datedMatch = line.match(/^-\s*(\d{4}-\d{2}-\d{2}):\s+(.+)/);
+    if (datedMatch) {
+      entries.push({ time: datedMatch[1], emoji: "📝", summary: datedMatch[2] });
+      continue;
+    }
+
+    const plainBullet = line.match(/^-\s+(.+)/);
+    if (plainBullet) {
+      entries.push({ time: "", emoji: "📝", summary: plainBullet[1] });
     }
   }
   return entries;
