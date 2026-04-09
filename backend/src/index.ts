@@ -1,3 +1,6 @@
+import { setDefaultResultOrder } from "node:dns";
+setDefaultResultOrder("ipv4first");
+
 // Catch silent crashes
 process.on("uncaughtException", (err) => {
   console.error("UNCAUGHT EXCEPTION:", err);

@@ -1,8 +1,14 @@
 import { Pool } from "pg";
 import { env } from "../env.js";
 
+const isRemote = env.DATABASE_URL.includes("supabase.co") || env.DATABASE_URL.includes("railway.app");
+const connString = isRemote
+  ? env.DATABASE_URL.replace(/[?&]sslmode=[^&]*/g, "")
+  : env.DATABASE_URL;
+
 export const pool = new Pool({
-  connectionString: env.DATABASE_URL,
+  connectionString: connString,
+  ssl: isRemote ? { rejectUnauthorized: false } : undefined,
 });
 
 export async function query<T = Record<string, unknown>>(text: string, params: unknown[] = []): Promise<T[]> {

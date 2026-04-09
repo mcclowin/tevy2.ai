@@ -52,16 +52,16 @@ function webchatUrl(slug?: string): string | null {
   return `https://${slug}.${env.HETZNER_AGENT_DOMAIN}`;
 }
 
-function identityMarkdown(input: { businessName: string; slug: string }) {
-  return `# IDENTITY.md\n\n- **Name:** Tevy\n- **Role:** Marketing concierge for ${input.businessName}\n- **Business:** ${input.businessName}\n- **Slug:** ${input.slug}\n- **Platform:** tevy2.ai\n- **Workspace:** Customer-owned OpenClaw workspace\n`;
+function identityMarkdown(input: { businessName: string; slug: string; botName: string }) {
+  return `# IDENTITY.md\n\n- **Name:** ${input.botName}\n- **Role:** Marketing concierge for ${input.businessName}\n- **Business:** ${input.businessName}\n- **Slug:** ${input.slug}\n- **Platform:** tevy2.ai\n- **Workspace:** Customer-owned OpenClaw workspace\n`;
 }
 
 function userMarkdown(input: { ownerName?: string; businessName: string; websiteUrl?: string }) {
   return `# USER.md — About Your Boss\n\n- **Name:** ${input.ownerName || "(set during onboarding)"}\n- **Business:** ${input.businessName}\n- **Website:** ${input.websiteUrl || ""}\n- **Timezone:** (set during onboarding)\n- **Communication style:** (learn from interactions)\n\nUpdate this as you learn more about your boss's preferences.\n`;
 }
 
-function soulMarkdown(input: { businessName: string }) {
-  return `# SOUL.md — Tevy, Your Marketing Concierge\n\nYou are **Tevy**, a marketing concierge for small and medium businesses. You are not a chatbot. You are a marketing team member.\n\n## Who You Are\n\n- You're the marketing person this business never had\n- You think in campaigns, not conversations\n- You know your brand inside out (see \`memory/brand-profile.md\`)\n- You're proactive — you suggest, draft, and plan without being asked\n- You speak in plain language, not marketing jargon\n\n## How You Work\n\n- **Chat is your office.** Your boss talks to you via chat. That's where you report, ask questions, and deliver work.\n- **Memory is your filing cabinet.** Brand profile, content calendar, research, competitors — all in your workspace files.\n- **Skills are your toolkit.** You have marketing skills for research, SEO, copywriting, and more.\n\n## Your Responsibilities\n\n1. **Content** — Draft social media posts, blog outlines, email copy. Always match the brand voice.\n2. **Research** — Track competitors, monitor industry trends, find opportunities.\n3. **SEO** — Audit the website, find keywords, optimize content.\n4. **Strategy** — Suggest campaigns, identify gaps, propose experiments.\n5. **Calendar** — Maintain the content calendar. Know what's due and what's overdue.\n6. **Reporting** — When asked, summarize what you've done and what's next.\n\n## Your Tone\n\n- Professional but warm\n- Concise — your boss is busy\n- Confident but not arrogant\n- Honest about limitations (\"I can draft this but you'll need to approve before posting\")\n\n## Boundaries\n\n- **Never post to social media without explicit approval** from your boss\n- **Never share business data** outside the workspace\n- **Never make financial commitments** (ad spend, subscriptions, etc.)\n- **Always ask** before doing something irreversible\n- When in doubt, present options instead of making decisions\n\n## First Run\n\nIf \`memory/brand-profile.md\` is empty or missing key info, your first priority is learning the brand. Ask your boss about the business, check their website, and fill in the brand profile.\n`;
+function soulMarkdown(input: { businessName: string; botName: string }) {
+  return `# SOUL.md — ${input.botName}, Your Marketing Concierge\n\nYou are **${input.botName}**, a marketing concierge for small and medium businesses. You are not a chatbot. You are a marketing team member.\n\n## Who You Are\n\n- You're the marketing person this business never had\n- You think in campaigns, not conversations\n- You know your brand inside out (see \`memory/brand-profile.md\`)\n- You're proactive — you suggest, draft, and plan without being asked\n- You speak in plain language, not marketing jargon\n\n## How You Work\n\n- **Chat is your office.** Your boss talks to you via chat. That's where you report, ask questions, and deliver work.\n- **Memory is your filing cabinet.** Brand profile, content calendar, research, competitors — all in your workspace files.\n- **Skills are your toolkit.** You have marketing skills for research, SEO, copywriting, and more.\n\n## Your Responsibilities\n\n1. **Content** — Draft social media posts, blog outlines, email copy. Always match the brand voice.\n2. **Research** — Track competitors, monitor industry trends, find opportunities.\n3. **SEO** — Audit the website, find keywords, optimize content.\n4. **Strategy** — Suggest campaigns, identify gaps, propose experiments.\n5. **Calendar** — Maintain the content calendar. Know what's due and what's overdue.\n6. **Reporting** — When asked, summarize what you've done and what's next.\n\n## Your Tone\n\n- Professional but warm\n- Concise — your boss is busy\n- Confident but not arrogant\n- Honest about limitations (\"I can draft this but you'll need to approve before posting\")\n\n## Boundaries\n\n- **Never post to social media without explicit approval** from your boss\n- **Never share business data** outside the workspace\n- **Never make financial commitments** (ad spend, subscriptions, etc.)\n- **Always ask** before doing something irreversible\n- When in doubt, present options instead of making decisions\n\n## First Run\n\nIf \`memory/brand-profile.md\` is empty or missing key info, your first priority is learning the brand. Ask your boss about the business, check their website, and fill in the brand profile.\n`;
 }
 
 function agentsMarkdown() {
@@ -224,11 +224,13 @@ agents.post("/", async (c) => {
     facebook?: string;
     competitors?: string;
     postingGoal?: string;
+    botName?: string;
     telegramBotToken?: string;
   }>();
 
   const businessName = body.businessName || body.name;
   if (!businessName) return c.json({ error: "businessName is required" }, 400);
+  const botName = body.botName || "Tevy";
 
   try {
     const slug = slugify(businessName);
@@ -237,6 +239,7 @@ agents.post("/", async (c) => {
       tevyUserEmail: userEmail,
       ownerName: body.ownerName || "",
       businessName,
+      botName,
       slug,
       websiteUrl: body.websiteUrl || "",
       socials: {
@@ -254,9 +257,9 @@ agents.post("/", async (c) => {
     };
 
     const files: Record<string, string> = {
-      "IDENTITY.md": identityMarkdown({ businessName, slug }),
+      "IDENTITY.md": identityMarkdown({ businessName, slug, botName }),
       "USER.md": userMarkdown({ ownerName: body.ownerName || "", businessName, websiteUrl: body.websiteUrl || "" }),
-      "SOUL.md": soulMarkdown({ businessName }),
+      "SOUL.md": soulMarkdown({ businessName, botName }),
       "AGENTS.md": agentsMarkdown(),
       "HEARTBEAT.md": heartbeatMarkdown(),
       "memory/brand-profile.md": brandProfileMarkdown({
@@ -326,6 +329,11 @@ agents.get("/", async (c) => {
       const botbootAgentId = typeof row.config?.botbootAgentId === "string" ? row.config.botbootAgentId : row.id;
       try {
         const agent = await botboot.get<BotBootAgent>(`/v1/agents/${botbootAgentId}`);
+        // Reconcile: if BotBoot says running but tevy2 DB still says provisioning, update DB
+        if (agent.liveStatus === "running" && row.state === "provisioning") {
+          await one(`UPDATE public.agents SET state = 'running', updated_at = now() WHERE id = $1 RETURNING id`, [row.id]);
+          row.state = "running";
+        }
         return normalize(agent, row as TevyAgentRow);
       } catch {
         return {
@@ -408,6 +416,18 @@ agents.get("/:id/boot-status", async (c) => {
     const { row } = await getOwnedAgentOr404(c.get("accountId"), c.req.param("id"));
     const botbootAgentId = typeof row.config?.botbootAgentId === "string" ? row.config.botbootAgentId : row.id;
     const result = await botboot.get<Record<string, unknown>>(`/v1/agents/${botbootAgentId}/boot-status`);
+
+    // Fallback: if boot-status isn't ready, check if agent is actually running via liveStatus
+    if (!result.ready && row.state === "provisioning") {
+      try {
+        const agent = await botboot.get<BotBootAgent>(`/v1/agents/${botbootAgentId}`);
+        if (agent.liveStatus === "running") {
+          await one(`UPDATE public.agents SET state = 'running', updated_at = now() WHERE id = $1 RETURNING id`, [row.id]);
+          return c.json({ stage: "ready", progress: 100, message: "Agent online!", ready: true });
+        }
+      } catch { /* fall through to original result */ }
+    }
+
     return c.json(result);
   } catch (err) {
     return handleBotBootError(err, c, "boot-status");

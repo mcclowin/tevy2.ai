@@ -2,15 +2,18 @@
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3002";
 
-export async function sendMagicLink(email: string) {
+export async function sendMagicLink(email: string, invite_code?: string) {
   const res = await fetch(`${API_URL}/api/auth/magic-link`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email }),
+    body: JSON.stringify({ email, ...(invite_code ? { invite_code } : {}) }),
   });
 
   const data = await res.json();
   if (!res.ok) {
+    if (data.invite_code_required) {
+      return { ...data, invite_code_required: true };
+    }
     console.error("magic-link failed", { status: res.status, data });
     throw new Error(data.error || "Failed to send magic link");
   }
