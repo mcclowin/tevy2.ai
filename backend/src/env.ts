@@ -29,6 +29,7 @@ export const env = {
   // Branding / URLs
   FRONTEND_URL: optional("FRONTEND_URL", "http://localhost:3000"),
   BACKEND_PUBLIC_URL: optional("BACKEND_PUBLIC_URL", "http://localhost:3002"),
+  BETA_INVITE_CODE: optional("BETA_INVITE_CODE", ""),
   HETZNER_AGENT_DOMAIN: optional("HETZNER_AGENT_DOMAIN", "agents.tevy2.ai"),
   DEFAULT_MODEL: optional("DEFAULT_MODEL", "openai-codex/gpt-5.4"),
 };

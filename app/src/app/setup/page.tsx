@@ -8,6 +8,8 @@ import { sendMagicLink, getUser } from "@/lib/auth";
 export default function SetupPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
+  const [needsCode, setNeedsCode] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -32,11 +34,24 @@ export default function SetupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !email.includes("@") || cooldown > 0) return;
+    if (needsCode && !inviteCode.trim()) return;
 
     try {
       setError(null);
       setLoading(true);
-      await sendMagicLink(email);
+      const result = await sendMagicLink(email, needsCode ? inviteCode.trim() : undefined);
+
+      if (result.invite_code_required) {
+        setNeedsCode(true);
+        setLoading(false);
+        return;
+      }
+
+      if (result.dev_bypass) {
+        router.push("/dashboard");
+        return;
+      }
+
       setSent(true);
       setCooldown(60);
     } catch (err) {
@@ -93,6 +108,9 @@ export default function SetupPage() {
               <p className="text-sm text-[var(--muted)]">
                 Enter your email to create your marketing agent
               </p>
+              <span className="inline-block mt-2 px-2 py-0.5 rounded text-xs bg-[var(--accent)]/20 text-[var(--accent-light)] border border-[var(--accent)]/30">
+                Closed Beta
+              </span>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -107,6 +125,22 @@ export default function SetupPage() {
                 />
               </div>
 
+              {needsCode && (
+                <div>
+                  <input
+                    className="input-field text-center"
+                    type="text"
+                    placeholder="Enter your invite code"
+                    value={inviteCode}
+                    onChange={(e) => setInviteCode(e.target.value)}
+                    autoFocus
+                  />
+                  <p className="text-xs text-[var(--muted)] mt-1 text-center">
+                    tevy2 is in closed beta. You need an invite code to sign up.
+                  </p>
+                </div>
+              )}
+
               {error && (
                 <p className="text-sm text-red-400 text-center">{error}</p>
               )}
@@ -114,7 +148,7 @@ export default function SetupPage() {
               <button
                 type="submit"
                 className="btn-primary w-full"
-                disabled={!email || !email.includes("@") || cooldown > 0 || loading}
+                disabled={!email || !email.includes("@") || cooldown > 0 || loading || (needsCode && !inviteCode.trim())}
               >
                 {loading ? "Sending..." : cooldown > 0 ? `Wait ${cooldown}s` : "Continue →"}
               </button>

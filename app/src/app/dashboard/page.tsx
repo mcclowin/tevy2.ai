@@ -16,6 +16,7 @@ type OnboardingData = {
   telegramBotToken: string;
   ownerName: string;
   businessName: string;
+  botName: string;
 };
 
 type BrandAsset = {
@@ -445,6 +446,7 @@ export default function DashboardPage() {
               <span className="gradient-text">tevy2</span>
               <span className="text-[var(--muted)]">.ai</span>
             </span>
+            <span className="px-1.5 py-0.5 rounded text-[10px] bg-[var(--accent)]/20 text-[var(--accent-light)] border border-[var(--accent)]/30 leading-none">Beta</span>
           </Link>
           <div className="mt-2 powered-badge text-xs">
             <span style={{ fontSize: "11px" }}>🐾</span> Powered by OpenClaw
@@ -550,6 +552,7 @@ function OnboardingPanel({ onComplete }: { onComplete: (agent: Agent) => void })
     telegramBotToken: "",
     ownerName: "",
     businessName: "",
+    botName: "Tevy",
   });
 
   const update = (field: keyof OnboardingData, value: string | boolean) => {
@@ -595,6 +598,7 @@ function OnboardingPanel({ onComplete }: { onComplete: (agent: Agent) => void })
         name: form.businessName,
         ownerName: form.ownerName,
         businessName: form.businessName,
+        botName: form.botName || "Tevy",
         telegramBotToken: form.addTelegram ? form.telegramBotToken : undefined,
       });
       setBootStatus({ stage: "provisioning", progress: 15, message: "Provisioning VPS...", ready: false });
@@ -647,6 +651,12 @@ function OnboardingPanel({ onComplete }: { onComplete: (agent: Agent) => void })
             <input className="input-field" placeholder="Sunrise Coffee Co" value={form.businessName}
               onChange={(e) => update("businessName", e.target.value)} disabled={deploying} autoFocus />
           </div>
+        </div>
+        <div>
+          <label className="text-xs text-[var(--muted)] mb-1 block">Bot name</label>
+          <input className="input-field" placeholder="Tevy" value={form.botName}
+            onChange={(e) => update("botName", e.target.value)} disabled={deploying} />
+          <p className="text-xs text-[var(--muted)] mt-1">Your marketing agent&apos;s name. Defaults to Tevy.</p>
         </div>
       </div>
 
@@ -1005,8 +1015,19 @@ function BrandTab({ agentData }: { agentData: Agent | null }) {
 
   return (
     <div className="p-8 max-w-4xl">
-      <h1 className="text-2xl font-bold mb-1">Brand Profile</h1>
+      <div className="flex items-center justify-between mb-1">
+        <h1 className="text-2xl font-bold">Brand Profile</h1>
+        <button
+          onClick={saveBrandProfile}
+          disabled={saving}
+          className="px-4 py-2 rounded-lg text-sm bg-[var(--accent)] text-white hover:opacity-90 transition-opacity disabled:opacity-40"
+        >
+          {saving ? "Saving..." : "Save profile"}
+        </button>
+      </div>
       <p className="text-[var(--muted)] mb-6">Edit your brand profile and manage social accounts.</p>
+      {message && <p className="text-sm text-green-400 mb-4">{message}</p>}
+      {error && <p className="text-sm text-red-400 mb-4">{error}</p>}
 
       {loading ? (
         <div className="glass rounded-xl p-6 text-center">
@@ -1044,16 +1065,7 @@ function BrandTab({ agentData }: { agentData: Agent | null }) {
 
           {/* Social Accounts */}
           <div className="glass rounded-xl p-6 mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold">📱 Social Accounts</h3>
-              <button
-                onClick={saveBrandProfile}
-                disabled={saving}
-                className="px-3 py-1.5 rounded-lg text-xs bg-[var(--accent)] text-white hover:opacity-90 transition-opacity disabled:opacity-40"
-              >
-                {saving ? "Saving..." : "Save profile"}
-              </button>
-            </div>
+            <h3 className="font-semibold mb-4">📱 Social Accounts</h3>
 
             {socialAccounts.length > 0 ? (
               <div className="space-y-2 mb-4">
@@ -1214,10 +1226,29 @@ function CalendarTab({ agentId }: { agentId: string }) {
 }
 
 /* ─── MARKET INTEL TAB ─── */
+function serializeCompetitors(entries: CompetitorEntry[]): string {
+  let md = "# Competitor Tracking\n\n";
+  if (entries.length === 0) {
+    md += "No competitors tracked yet.\n";
+    return md;
+  }
+  for (const entry of entries) {
+    md += `## ${entry.name}\n`;
+    if (entry.website) md += `- **Website:** ${entry.website}\n`;
+    if (entry.description) md += `- **What they do well:** ${entry.description}\n`;
+    if (entry.differentiator) md += `- **Our differentiator:** ${entry.differentiator}\n`;
+    md += "\n";
+  }
+  return md;
+}
+
 function MarketIntelTab({ agentId }: { agentId: string }) {
   const [competitors, setCompetitors] = useState<CompetitorEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
   const [newCompetitor, setNewCompetitor] = useState("");
+  const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
     if (!agentId) return;
@@ -1236,10 +1267,28 @@ function MarketIntelTab({ agentId }: { agentId: string }) {
     if (!newCompetitor.trim()) return;
     setCompetitors((prev) => [...prev, { name: newCompetitor.trim(), website: "", description: "", differentiator: "" }]);
     setNewCompetitor("");
+    setDirty(true);
   };
 
   const removeCompetitor = (index: number) => {
     setCompetitors((prev) => prev.filter((_, i) => i !== index));
+    setDirty(true);
+  };
+
+  const saveCompetitors = async () => {
+    if (!agentId) return;
+    setSaving(true);
+    setMessage(null);
+    try {
+      const md = serializeCompetitors(competitors);
+      await writeAgentFile(agentId, "memory/competitors.md", md);
+      setMessage("Competitors saved.");
+      setDirty(false);
+    } catch {
+      setMessage("Failed to save competitors.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -1256,8 +1305,18 @@ function MarketIntelTab({ agentId }: { agentId: string }) {
         <>
           {/* Tracking List */}
           <div className="glass rounded-xl p-6 mb-6">
-            <h3 className="font-semibold mb-1">🎯 Tracking List</h3>
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="font-semibold">🎯 Tracking List</h3>
+              <button
+                onClick={saveCompetitors}
+                disabled={saving || !dirty}
+                className="px-3 py-1.5 rounded-lg text-xs bg-[var(--accent)] text-white hover:opacity-90 transition-opacity disabled:opacity-40"
+              >
+                {saving ? "Saving..." : "Save"}
+              </button>
+            </div>
             <p className="text-xs text-[var(--muted)] mb-4">Competitors, accounts, and topics your bot monitors.</p>
+            {message && <p className="text-xs text-green-400 mb-3">{message}</p>}
 
             {competitors.length > 0 && (
               <div className="space-y-2 mb-4">
@@ -1566,6 +1625,9 @@ function SettingsTab({ agentData, liveStatus, setLiveStatus, setHasAgent }: {
   const [runtimeLoading, setRuntimeLoading] = useState(false);
   const [runtimeError, setRuntimeError] = useState<string | null>(null);
   const [updateMessage, setUpdateMessage] = useState<string | null>(null);
+  const [botName, setBotName] = useState<string>((agentData?.config as Record<string, unknown>)?.botName as string || "Tevy");
+  const [savingName, setSavingName] = useState(false);
+  const [nameMessage, setNameMessage] = useState<string | null>(null);
   const [toolToggles, setToolToggles] = useState({
     webSearch: false,
     imageGen: false,
@@ -1628,14 +1690,17 @@ function SettingsTab({ agentData, liveStatus, setLiveStatus, setHasAgent }: {
     setUpdating(true);
     setUpdateMessage(null);
     try {
-      const result = await updateAgent(agentData.id);
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Update timed out — the agent may still be updating in the background.")), 60_000)
+      );
+      const result = await Promise.race([updateAgent(agentData.id), timeoutPromise]);
       setRuntime(result.runtime || null);
       setRuntimeError(null);
       setUpdateMessage(
         `Update complete. OpenClaw ${result.runtime?.openclawVersion || "unknown"} · image ${result.runtime?.imageRevision || "unknown"}`
       );
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Update failed");
+      setUpdateMessage(err instanceof Error ? err.message : "Update failed");
     } finally {
       setUpdating(false);
     }
@@ -1643,6 +1708,24 @@ function SettingsTab({ agentData, liveStatus, setLiveStatus, setHasAgent }: {
 
   const toggleTool = (key: keyof typeof toolToggles) => {
     setToolToggles((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const saveBotName = async () => {
+    if (!agentData?.id || !botName.trim()) return;
+    setSavingName(true);
+    setNameMessage(null);
+    try {
+      const name = botName.trim();
+      const businessName = agentData.business_name || agentData.name || "your business";
+      const slug = agentData.slug || "";
+      const identityMd = `# IDENTITY.md\n\n- **Name:** ${name}\n- **Role:** Marketing concierge for ${businessName}\n- **Business:** ${businessName}\n- **Slug:** ${slug}\n- **Platform:** tevy2.ai\n- **Workspace:** Customer-owned OpenClaw workspace\n`;
+      await writeAgentFile(agentData.id, "IDENTITY.md", identityMd);
+      setNameMessage("Bot name updated.");
+    } catch {
+      setNameMessage("Failed to update bot name.");
+    } finally {
+      setSavingName(false);
+    }
   };
 
   return (
@@ -1710,6 +1793,33 @@ function SettingsTab({ agentData, liveStatus, setLiveStatus, setHasAgent }: {
               {deleting ? "Deleting..." : "🗑️ Delete agent & data"}
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Bot Name */}
+      <div className="mb-8">
+        <h3 className="text-sm font-semibold text-[var(--muted)] uppercase tracking-wide mb-3">Bot Identity</h3>
+        <div className="glass rounded-xl p-5">
+          <div className="flex items-center gap-3">
+            <div className="flex-1">
+              <label className="text-xs text-[var(--muted)] mb-1 block">Bot name</label>
+              <input
+                className="input-field"
+                value={botName}
+                onChange={(e) => setBotName(e.target.value)}
+                placeholder="Tevy"
+              />
+            </div>
+            <button
+              onClick={saveBotName}
+              disabled={savingName || !botName.trim()}
+              className="px-3 py-1.5 rounded-lg text-xs bg-[var(--accent)] text-white hover:opacity-90 transition-opacity disabled:opacity-40 mt-4"
+            >
+              {savingName ? "Saving..." : "Save"}
+            </button>
+          </div>
+          {nameMessage && <p className="text-xs text-green-400 mt-2">{nameMessage}</p>}
+          <p className="text-xs text-[var(--muted)] mt-2">This name is used in your agent&apos;s identity and personality files.</p>
         </div>
       </div>
 

@@ -88,6 +88,7 @@ export function createAgent(data: {
   name?: string;
   ownerName?: string;
   businessName?: string;
+  botName?: string;
   websiteUrl?: string;
   instagram?: string;
   tiktok?: string;

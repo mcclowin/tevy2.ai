@@ -8,6 +8,8 @@ import { sendMagicLink, getUser } from "@/lib/auth";
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
+  const [needsCode, setNeedsCode] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -22,11 +24,19 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !email.includes("@")) return;
+    if (needsCode && !inviteCode.trim()) return;
 
     try {
       setError(null);
       setLoading(true);
-      const result = await sendMagicLink(email);
+      const result = await sendMagicLink(email, needsCode ? inviteCode.trim() : undefined);
+
+      if (result.invite_code_required) {
+        setNeedsCode(true);
+        setLoading(false);
+        return;
+      }
+
       // Dev bypass: instant login, redirect to dashboard
       if (result.dev_bypass) {
         router.push("/dashboard");
@@ -50,6 +60,9 @@ export default function LoginPage() {
             <span className="text-[var(--muted)]">.ai</span>
           </div>
           <p className="text-[var(--muted)] text-sm">Log in to your marketing dashboard</p>
+          <span className="inline-block mt-2 px-2 py-0.5 rounded text-xs bg-[var(--accent)]/20 text-[var(--accent-light)] border border-[var(--accent)]/30">
+            Closed Beta
+          </span>
         </div>
 
         {sent ? (
@@ -82,6 +95,23 @@ export default function LoginPage() {
               />
             </div>
 
+            {needsCode && (
+              <div>
+                <label className="text-sm text-[var(--muted)] mb-1 block">Invite code</label>
+                <input
+                  className="input-field"
+                  type="text"
+                  placeholder="Enter your invite code"
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value)}
+                  autoFocus
+                />
+                <p className="text-xs text-[var(--muted)] mt-1">
+                  tevy2 is in closed beta. You need an invite code to sign up.
+                </p>
+              </div>
+            )}
+
             {error && (
               <p className="text-sm text-red-400">{error}</p>
             )}
@@ -89,7 +119,7 @@ export default function LoginPage() {
             <button
               type="submit"
               className="btn-primary w-full"
-              disabled={!email || !email.includes("@") || loading}
+              disabled={!email || !email.includes("@") || loading || (needsCode && !inviteCode.trim())}
             >
               {loading ? "Sending..." : "Send magic link →"}
             </button>

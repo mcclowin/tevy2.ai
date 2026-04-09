@@ -6,10 +6,25 @@ const auth = new Hono();
 
 // POST /api/auth/magic-link — send magic link (or instant dev login)
 auth.post("/magic-link", async (c) => {
-  const { email } = await c.req.json<{ email: string }>();
+  const { email, invite_code } = await c.req.json<{ email: string; invite_code?: string }>();
 
   if (!email || !email.includes("@")) {
     return c.json({ error: "Valid email required" }, 400);
+  }
+
+  // Check if this is a new user who needs an invite code
+  const existing = await one<{ id: string }>(
+    "select id from public.accounts where email = $1 limit 1",
+    [email]
+  );
+
+  if (!existing && env.BETA_INVITE_CODE) {
+    if (!invite_code) {
+      return c.json({ error: "invite_code_required", invite_code_required: true }, 403);
+    }
+    if (invite_code !== env.BETA_INVITE_CODE) {
+      return c.json({ error: "Invalid invite code" }, 403);
+    }
   }
 
   // Dev bypass: instant login, no Stytch
