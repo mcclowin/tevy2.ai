@@ -27,7 +27,6 @@ CREATE TABLE IF NOT EXISTS public.agents (
   config              JSONB DEFAULT '{}',
   created_at          TIMESTAMPTZ DEFAULT now(),
   updated_at          TIMESTAMPTZ DEFAULT now(),
-  UNIQUE(account_id, slug)
 );
 
 CREATE INDEX IF NOT EXISTS idx_accounts_stytch ON public.accounts(stytch_user_id);
@@ -35,6 +34,7 @@ CREATE INDEX IF NOT EXISTS idx_accounts_email ON public.accounts(email);
 CREATE INDEX IF NOT EXISTS idx_agents_account ON public.agents(account_id);
 CREATE INDEX IF NOT EXISTS idx_agents_state ON public.agents(state);
 CREATE INDEX IF NOT EXISTS idx_agents_slug ON public.agents(slug);
+CREATE UNIQUE INDEX IF NOT EXISTS agents_account_id_slug_active ON public.agents (account_id, slug) WHERE state <> 'deleted';
 
 ALTER TABLE public.accounts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.agents ENABLE ROW LEVEL SECURITY;
